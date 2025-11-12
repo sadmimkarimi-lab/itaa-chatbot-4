@@ -1,4 +1,8 @@
-export default async function handler(req, res) {
+// تغییر از import به require
+const fetch = require("node-fetch");  // برای استفاده از node-fetch
+
+// تغییرات مربوط به export
+module.exports = async function handler(req, res) {
   if (req.method === "POST") {
     try {
       const { text, chatHistory = [] } = req.body || {};
@@ -8,7 +12,7 @@ export default async function handler(req, res) {
 
       // افزودن پیام جدید به تاریخچه چت
       const newChatHistory = [...chatHistory, { role: "user", content: text }];
-      
+
       const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -37,4 +41,4 @@ export default async function handler(req, res) {
   }
 
   return res.status(405).json({ error: "Method not allowed" });
-}
+};
