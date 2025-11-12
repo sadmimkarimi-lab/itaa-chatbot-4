@@ -1,6 +1,9 @@
+// تغییر از import به require
+const fetch = require("node-fetch");  // برای ارسال درخواست به ایتا
 const BOT_TOKEN = process.env.EITA_BOT_TOKEN;
 const API_BASE = `https://api.eitaa.com/bot${BOT_TOKEN}`;
 
+// ارسال پیام به ایتا
 async function sendMessage(chat_id, text) {
   await fetch(`${API_BASE}/sendMessage`, {
     method: "POST",
@@ -9,7 +12,8 @@ async function sendMessage(chat_id, text) {
   });
 }
 
-export default async function handler(req, res) {
+// تغییرات مربوط به export
+module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(200).send("OK");
 
   const update = req.body;
@@ -36,4 +40,4 @@ export default async function handler(req, res) {
   // ارسال پاسخ به کاربر
   await sendMessage(chatId, resp.answer || "نتونستم جواب بگیرم 😔");
   return res.status(200).json({ ok: true });
-}
+};
