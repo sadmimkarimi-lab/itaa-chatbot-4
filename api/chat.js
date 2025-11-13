@@ -4,6 +4,23 @@
 // تا وقتی سرور گرم است، چند پیام آخر را نگه می‌دارد
 const chatMemory = [];
 
+// تمیز کردن خروجی: حذف فاصله‌های اضافه، مرتب کردن خط‌ها و فاصله بین پاراگراف‌ها
+function cleanAnswer(text) {
+  if (!text || typeof text !== "string") return "نتوانستم پاسخی تولید کنم.";
+
+  let t = text.trim();
+
+  // نرمال‌سازی خط‌ها
+  t = t.replace(/\r\n/g, "\n");
+
+  // حداکثر دو خط خالی پشت سر هم
+  t = t.replace(/\n{3,}/g, "\n\n");
+
+  // حذف فاصله‌های اضافه در انتهای هر خط
+  const lines = t.split("\n").map((line) => line.replace(/\s+$/g, ""));
+  return lines.join("\n");
+}
+
 export default async function handler(req, res) {
   // فقط POST را قبول می‌کنیم
   if (req.method !== "POST") {
@@ -18,11 +35,11 @@ export default async function handler(req, res) {
       .json({ ok: false, error: "کلید OpenAI روی سرور تنظیم نشده است." });
   }
 
-  // پیام کاربر را از بدنه درخواست بخوانیم
+  // پیام کاربر را از بدنه درخواست بخوانیم (چند حالت مختلف را پشتیبانی می‌کنیم)
   const userMessage =
-    req.body?.text ||      // حالتی که ما از فرانت خودمان می‌فرستیم { text: "..." }
-    req.body?.message ||   // اگر کسی { message: "..." } فرستاد
-    req.body?.message?.text || // حالتی شبیه وبهوک‌های پیام‌رسان‌ها
+    req.body?.text || // حالت فرانت خودت { text: "..." }
+    req.body?.message || // اگر کسی { message: "..." } بفرستد
+    req.body?.message?.text || // حالت شبیه وبهوک
     null;
 
   if (!userMessage || typeof userMessage !== "string") {
@@ -35,7 +52,7 @@ export default async function handler(req, res) {
     // پیام جدید کاربر را در حافظه اضافه می‌کنیم
     chatMemory.push({ role: "user", content: userMessage });
 
-    // فقط چند پیام آخر را برای مدل می‌فرستیم (برای صرفه‌جویی در توکن)
+    // فقط چند پیام آخر را برای مدل می‌فرستیم
     const context = chatMemory.slice(-8); // ۸ پیام آخر (۴ رفت‌وبرگشت)
 
     const response = await fetch(
@@ -51,8 +68,17 @@ export default async function handler(req, res) {
           messages: [
             {
               role: "system",
-              content:
-                "تو یک دستیار حرفه‌ای فارسی‌زبان هستی. پاسخ‌ها را منظم، کوتاه، واضح و خوش‌خوان بنویس. اگر لازم بود، از بولت‌پوینت‌ها، پاراگراف‌بندی و ایموجی‌های ملایم استفاده کن. از تکرار بی‌دلیل و پرحرفی پرهیز کن.",
+              content: `
+تو یک دستیار حرفه‌ای فارسی‌زبان هستی.
+
+قوانین نوشتن پاسخ:
+- کوتاه، واضح و کاربردی بنویس.
+- متن را تمیز و خوش‌خوان بنویس (پاراگراف‌بندی، خط‌های جدا بین بخش‌ها).
+- اگر مناسب بود، از بولت‌پوینت (با - در ابتدای خط) استفاده کن.
+- از تکرار بی‌دلیل و مقدمه‌چینی زیاد خودداری کن.
+- اگر سؤال کاربر چند بخش دارد، پاسخ را مرحله‌به‌مرحله و منظم بنویس.
+- لحن: محترمانه، صمیمی، حرفه‌ای.
+            `.trim(),
             },
             ...context,
           ],
@@ -74,9 +100,12 @@ export default async function handler(req, res) {
         .json({ ok: false, error: `خطا از سمت OpenAI: ${msg}` });
     }
 
-    const answer =
-      data?.choices?.[0]?.message?.content?.trim() ||
+    const rawAnswer =
+      data?.choices?.[0]?.message?.content ||
       "نتوانستم پاسخی تولید کنم، لطفاً دوباره تلاش کنید.";
+
+    // تمیز کردن متن خروجی برای نمایش بهتر در حباب چت
+    const answer = cleanAnswer(rawAnswer);
 
     // پاسخ دستیار را هم در حافظه اضافه می‌کنیم
     chatMemory.push({ role: "assistant", content: answer });
