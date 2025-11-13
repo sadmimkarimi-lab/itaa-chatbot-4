@@ -3,264 +3,370 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>چت GPT ایتا</title>
+  <title>چت GPT ایتا - طاویتا</title>
   <script src="https://developer.eitaa.com/eitaa-web-app.js"></script>
 
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
-      font-family: 'Vazirmatn', sans-serif;
-      background: #eef5f0;
+      font-family: "Vazirmatn", system-ui, sans-serif;
+      background: linear-gradient(145deg, #e8f7ef, #f7fffb);
       height: 100vh;
       display: flex;
       flex-direction: column;
+      color: #222;
     }
 
-    /* هدر سبز */
+    /* هدر سبز جذاب */
     .topbar {
-      background: #0f9d58; 
+      background: linear-gradient(135deg, #00a86b, #0f9d58);
       color: #fff;
       padding: 14px 16px;
       display: flex;
       align-items: center;
-      gap: 12px;
-      box-shadow: 0 2px 4px rgba(0,0,0,.1);
-      border-radius: 0 0 20px 20px;
+      gap: 10px;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+      border-radius: 0 0 22px 22px;
       position: relative;
+      z-index: 2;
+    }
+
+    .topbar-logo {
+      width: 52px;
+      height: 52px;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+      flex-shrink: 0;
+      background: rgba(255, 255, 255, 0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .topbar-logo img {
-      width: 45px;
-      height: 45px;
-      border-radius: 10px;
+      width: 46px;
+      height: 46px;
+      object-fit: cover;
+      border-radius: 14px;
+    }
+
+    .topbar-text {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
 
     .topbar-title {
       font-size: 18px;
-      font-weight: bold;
-      margin-top: 3px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
     }
 
     .topbar-sub {
       font-size: 11px;
-      margin-top: 2px;
-      opacity: .9;
+      margin-top: 3px;
+      opacity: 0.95;
     }
 
     .clear-chat {
       position: absolute;
       left: 10px;
-      top: 10px;
-      background: #fff;
-      color: #333;
+      top: 11px;
+      background: rgba(255, 255, 255, 0.98);
+      color: #0f9d58;
       border: none;
-      border-radius: 10px;
-      padding: 5px 12px;
-      font-size: 13px;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 11px;
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
     }
 
-    /* چت */
+    .clear-chat span.icon {
+      font-size: 13px;
+    }
+
+    /* بخش چت */
     .chat-wrapper {
       flex: 1;
       overflow-y: auto;
-      padding: 12px;
+      padding: 12px 10px 8px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
+      position: relative;
+      z-index: 1;
     }
 
+    /* حباب پیام‌ها */
     .msg {
       max-width: 80%;
-      padding: 12px 16px;
+      padding: 10px 14px;
       border-radius: 18px;
-      line-height: 1.8;
-      font-size: 15px;
-      background: #fff;
-      box-shadow: 0 3px 6px rgba(0,0,0,.1);
-      animation: fadeIn .25s ease;
+      line-height: 1.9;
+      font-size: 14px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+      background: #ffffff;
+      position: relative;
+      animation: bubbleIn 0.22s ease-out;
+      white-space: pre-wrap;
+      word-wrap: break-word;
     }
 
     .msg.bot {
       align-self: flex-start;
-      border-top-right-radius: 2px;
+      border-top-right-radius: 4px;
+      background: #ffffff;
     }
 
     .msg.user {
-      background: #cfe9ff;
       align-self: flex-end;
-      border-top-left-radius: 2px;
-      text-align: right;
+      border-top-left-radius: 4px;
+      background: #cfe7ff;
     }
 
     .msg.loading {
-      background: #e5e5e5;
-      color: #666;
+      background: #ececec;
+      color: #555;
       font-style: italic;
       text-align: center;
+      align-self: center;
+      max-width: 65%;
     }
 
-    @keyframes fadeIn {
-      from {opacity: 0; transform: translateY(10px);}
-      to {opacity: 1; transform: translateY(0);}
+    @keyframes bubbleIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.96);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
     }
 
-    /* نوار ورودی */
+    /* نوار ورودی پایین */
     .input-bar {
       display: flex;
+      align-items: center;
       gap: 8px;
-      padding: 10px;
-      background: #fff;
-      border-top: 1px solid #ddd;
+      padding: 8px 10px 12px;
+      background: rgba(255, 255, 255, 0.98);
+      border-top: 1px solid #d8e3db;
+      box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.06);
     }
 
     .input-bar input {
       flex: 1;
-      padding: 10px 14px;
-      border-radius: 10px;
-      border: 1px solid #ccc;
+      padding: 9px 12px;
+      border-radius: 12px;
+      border: 1px solid #c3d2c9;
       font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      background: #fdfefe;
     }
 
-    .input-bar button {
-      background: #0f9d58;
-      color: #fff;
+    .input-bar input:focus {
+      border-color: #0f9d58;
+      box-shadow: 0 0 0 2px rgba(15, 157, 88, 0.18);
+    }
+
+    .btn {
       border: none;
-      border-radius: 10px;
-      padding: 0 18px;
+      border-radius: 12px;
+      padding: 0 15px;
+      height: 38px;
       font-size: 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
     }
 
     #emojiBtn {
       width: 40px;
-      background: #0f9d58;
       padding: 0;
-      font-size: 18px;
+      background: #e1f3ea;
+      color: #0f9d58;
+      font-size: 20px;
+    }
+
+    #sendBtn {
+      background: linear-gradient(135deg, #0f9d58, #00b66d);
+      color: #fff;
+      font-weight: 600;
+      min-width: 70px;
+    }
+
+    #sendBtn:active {
+      transform: scale(0.97);
     }
 
     /* پنل ایموجی */
     #emojiPanel {
-      position: absolute;
+      position: fixed;
       bottom: 70px;
-      left: 20px;
+      left: 12px;
+      background: #ffffff;
+      padding: 10px;
+      border-radius: 12px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
       display: none;
       flex-wrap: wrap;
-      gap: 10px;
-      background: #fff;
-      padding: 12px;
-      border-radius: 12px;
-      box-shadow: 0 2px 4px rgba(0,0,0,.15);
+      gap: 8px;
+      max-width: 260px;
+      z-index: 10;
     }
 
     #emojiPanel span {
-      font-size: 26px;
+      font-size: 22px;
       cursor: pointer;
+      transition: transform 0.1s ease;
     }
 
+    #emojiPanel span:active {
+      transform: scale(1.2);
+    }
   </style>
 </head>
-
 <body>
 
-  <!-- هدر -->
+  <!-- هدر بالا -->
   <div class="topbar">
     <div class="topbar-logo">
-      <img src="https://cdnfa.com/irangiah/a9be/uploads/new5/picsart-25-11-11-18-20-53-865.png">
+      <img src="https://cdnfa.com/irangiah/a9be/uploads/new5/picsart-25-11-11-18-20-53-865.png" alt="Tavita Logo">
     </div>
-
-    <div>
+    <div class="topbar-text">
       <div class="topbar-title">CHATGPT</div>
       <div class="topbar-sub">مدرسه هوش مصنوعی طاویتا</div>
     </div>
 
-    <button class="clear-chat">پاک کردن</button>
+    <button class="clear-chat" type="button">
+      <span class="icon">🧹</span>
+      <span>پاک کردن چت</span>
+    </button>
   </div>
 
-  <!-- پیام‌ها -->
+  <!-- لیست پیام‌ها -->
   <div id="chat" class="chat-wrapper">
-    <div class="msg bot">سلام عزیزم 👋 — بپرس تا کمکت کنم 💚</div>
+    <div class="msg bot">
+      سلام 👋  
+      من دستیار هوش مصنوعی طاویتا هستم. هر سوالی داری بپرس 💚
+    </div>
   </div>
 
   <!-- پنل ایموجی -->
   <div id="emojiPanel">
     <span>😀</span><span>😂</span><span>😍</span><span>😎</span>
     <span>😊</span><span>🤔</span><span>🥺</span><span>😡</span>
+    <span>🙏</span><span>👌</span><span>🔥</span><span>✨</span>
   </div>
 
-  <!-- ورودی -->
+  <!-- نوار ورودی -->
   <div class="input-bar">
-    <input id="userInput" type="text" placeholder="پیامتو بنویس..." />
-    <button id="emojiBtn">😊</button>
-    <button id="sendBtn">ارسال</button>
+    <input id="userInput" type="text" placeholder="پیامت رو بنویس..." />
+    <button id="emojiBtn" class="btn" type="button">😊</button>
+    <button id="sendBtn" class="btn" type="button">ارسال</button>
   </div>
 
   <script>
-    const chat = document.getElementById("chat");
-    const input = document.getElementById("userInput");
-    const emojiBtn = document.getElementById("emojiBtn");
+    const chatEl     = document.getElementById("chat");
+    const inputEl    = document.getElementById("userInput");
+    const sendBtn    = document.getElementById("sendBtn");
+    const emojiBtn   = document.getElementById("emojiBtn");
     const emojiPanel = document.getElementById("emojiPanel");
+    const clearBtn   = document.querySelector(".clear-chat");
 
     function scrollBottom() {
-      chat.scrollTop = chat.scrollHeight;
+      chatEl.scrollTop = chatEl.scrollHeight;
     }
 
     function addMsg(text, type = "bot") {
-      const box = document.createElement("div");
-      box.className = "msg " + type;
-      box.textContent = text;
-      chat.appendChild(box);
+      const div = document.createElement("div");
+      div.className = "msg " + type;
+      div.textContent = text;
+      chatEl.appendChild(div);
       scrollBottom();
+      return div;
     }
 
     async function sendMessage() {
-      const text = input.value.trim();
+      const text = inputEl.value.trim();
       if (!text) return;
 
+      // پیام کاربر
       addMsg(text, "user");
-      input.value = "";
+      inputEl.value = "";
+      inputEl.focus();
 
+      // پیام در حال پردازش
       const loading = document.createElement("div");
       loading.className = "msg bot loading";
       loading.textContent = "در حال فکر کردن...";
-      chat.appendChild(loading);
+      chatEl.appendChild(loading);
       scrollBottom();
 
       try {
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text }),
+          body: JSON.stringify({ text })
         });
 
         const data = await res.json();
         loading.remove();
-        addMsg(data.answer || "خطا در پاسخ", "bot");
-
+        addMsg((data && data.answer) || "خطا در پاسخ", "bot");
       } catch (err) {
+        console.error(err);
         loading.remove();
-        addMsg("❌ خطا در ارتباط با سرور", "bot");
+        addMsg("❌ مشکل در ارتباط با سرور", "bot");
       }
     }
 
-    document.getElementById("sendBtn").onclick = sendMessage;
-    input.addEventListener("keyup", e => e.key === "Enter" && sendMessage());
+    // دکمه ارسال
+    sendBtn.addEventListener("click", sendMessage);
 
-    emojiBtn.onclick = () => {
-      emojiPanel.style.display = emojiPanel.style.display === "flex" ? "none" : "flex";
-    };
+    // ارسال با Enter
+    inputEl.addEventListener("keyup", (e) => {
+      if (e.key === "Enter") sendMessage();
+    });
 
-    emojiPanel.onclick = e => {
+    // باز و بسته کردن پنل ایموجی
+    emojiBtn.addEventListener("click", () => {
+      emojiPanel.style.display = (emojiPanel.style.display === "flex") ? "none" : "flex";
+    });
+
+    // کلیک روی ایموجی
+    emojiPanel.addEventListener("click", (e) => {
       if (e.target.tagName === "SPAN") {
-        input.value += e.target.textContent;
+        inputEl.value += e.target.textContent;
+        inputEl.focus();
       }
       emojiPanel.style.display = "none";
-    };
+    });
 
-    document.querySelector(".clear-chat").onclick = () => {
-      chat.innerHTML = "";
-      addMsg("سلام عزیزم 👋 — بپرس تا کمکت کنم 💚", "bot");
-    };
+    // پاک کردن چت
+    clearBtn.addEventListener("click", () => {
+      chatEl.innerHTML = "";
+      addMsg("چت پاک شد. دوباره هر سوالی داری بپرس 💚", "bot");
+    });
+
+    // بستن پنل ایموجی با کلیک بیرون
+    document.addEventListener("click", (e) => {
+      if (!emojiPanel.contains(e.target) && e.target !== emojiBtn) {
+        emojiPanel.style.display = "none";
+      }
+    });
   </script>
-
 </body>
 </html>
