@@ -4,7 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>چت GPT در ایتا</title>
+
+  <!-- اسکریپت ایتا (اگر لازم شد) -->
   <script src="https://developer.eitaa.com/eitaa-web-app.js"></script>
+
   <style>
     * { box-sizing: border-box; }
     body {
@@ -85,12 +88,14 @@
       font-family: 'Arial', sans-serif;
       margin-bottom: 10px;
     }
+
     .msg.user {
       background: #d1e7ff;
       align-self: flex-start;
       border-top-left-radius: 30px;
       text-align: right;
     }
+
     .msg.bot {
       background: #fff;
       align-self: flex-start;
@@ -98,7 +103,6 @@
       text-align: left;
     }
 
-    /* استایل برای پیامی که در حال پردازش است */
     .msg.loading {
       background: #e9e9e9;
       color: #888;
@@ -146,7 +150,7 @@
       background-color: #0c7c44;
     }
 
-    /* استایل پنل ایموجی */
+    /* پنل ایموجی */
     .emoji-panel {
       position: absolute;
       bottom: 70px;
@@ -160,11 +164,11 @@
       box-shadow: 0 2px 4px rgba(0,0,0,.1);
       transition: opacity 0.3s ease;
     }
+
     .emoji-panel span {
       font-size: 28px;
       cursor: pointer;
     }
-
   </style>
 </head>
 <body>
@@ -172,7 +176,8 @@
   <!-- هدر بالا -->
   <div class="topbar">
     <div class="topbar-logo">
-      <img src="https://cdnfa.com/irangiah/a9be/uploads/new5/picsart-25-11-11-18-20-53-865.png" alt="Logo" style="width: 40px; height: 40px;"/>
+      <img src="https://cdnfa.com/irangiah/a9be/uploads/new5/picsart-25-11-11-18-20-53-865.png"
+           alt="Logo" style="width: 40px; height: 40px;"/>
     </div>
     <div class="topbar-title">
       CHATGPT
@@ -199,7 +204,7 @@
     <span>😡</span>
   </div>
 
-  <!-- نوار ورودی پایین -->
+  <!-- نوار ورودی -->
   <div class="input-bar">
     <input id="userInput" type="text" placeholder="اینجا بنویس..." />
     <button id="emojiBtn" style="width: 40px; height: 40px; padding: 0;">😊</button>
@@ -213,12 +218,10 @@
     const emojiBtn = document.getElementById("emojiBtn");
     const emojiPanel = document.getElementById("emojiPanel");
 
-    // اسکرول به آخر
     function scrollBottom() {
       chatEl.scrollTop = chatEl.scrollHeight;
     }
 
-    // افزودن پیام به صفحه
     function addMsg(text, type = "bot") {
       const div = document.createElement("div");
       div.className = "msg " + type;
@@ -227,19 +230,16 @@
       scrollBottom();
     }
 
-    // ارسال پیام
     async function sendMessage() {
       const text = inputEl.value.trim();
       if (!text) return;
 
       // پیام کاربر
       addMsg(text, "user");
-
-      // خالی‌کردن فیلد
       inputEl.value = "";
       inputEl.focus();
 
-      // پیام موقت
+      // پیام «در حال فکر کردن...»
       const loadingMsg = document.createElement("div");
       loadingMsg.className = "msg bot loading";
       loadingMsg.textContent = "در حال فکر کردن...";
@@ -247,26 +247,24 @@
       scrollBottom();
 
       try {
-        const res = await fetch("https://api.openai.com/v1/completions", {
+        // اینجا می‌زنیم به سرور خودمون (ورسل)، نه مستقیم به OpenAI
+        const res = await fetch("/api/chat", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": "Bearer YOUR_OPENAI_API_KEY"
           },
-          body: JSON.stringify({
-            model: "text-davinci-003",  // مدل را انتخاب کن
-            prompt: text,               // پیام ورودی
-            max_tokens: 150,            // تعداد کلمات محدود
-            temperature: 0.7,           // میزان خلاقیت
-            top_p: 1,
-            frequency_penalty: 0.5,
-            presence_penalty: 0.5      // جلوگیری از تکرار جملات مشابه
-          })
+          body: JSON.stringify({ text }), // 👈 با chat.js هماهنگ است
         });
 
         const data = await res.json();
         loadingMsg.remove();
-        addMsg(data.choices[0].text.trim() || "خطا در پاسخ", "bot");
+
+        if (!res.ok || data.ok === false) {
+          addMsg("❌ خطا: " + (data.error || "مشکل در ارتباط با سرور"), "bot");
+          return;
+        }
+
+        addMsg(data.answer || "جوابی برنگشت.", "bot");
       } catch (e) {
         loadingMsg.remove();
         addMsg("❌ مشکل در ارتباط با سرور", "bot");
@@ -278,22 +276,21 @@
       if (e.key === "Enter") sendMessage();
     });
 
-    // فعال‌سازی پنل ایموجی
+    // ایموجی
     emojiBtn.onclick = () => {
-      emojiPanel.style.display = emojiPanel.style.display === 'flex' ? 'none' : 'flex';
+      emojiPanel.style.display = emojiPanel.style.display === "flex" ? "none" : "flex";
     };
 
-    // افزودن ایموجی به فیلد ورودی
     emojiPanel.onclick = (e) => {
-      if (e.target.tagName === 'SPAN') {
+      if (e.target.tagName === "SPAN") {
         inputEl.value += e.target.textContent;
       }
-      emojiPanel.style.display = 'none';
+      emojiPanel.style.display = "none";
     };
 
     // پاک کردن چت
     document.querySelector(".clear-chat").onclick = () => {
-      chatEl.innerHTML = '';
+      chatEl.innerHTML = "";
       addMsg("سلام 👋 من چت‌بات هوشمند هستم. بپرس 😊", "bot");
     };
   </script>
