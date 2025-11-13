@@ -37,7 +37,22 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { message, history } = req.body || {};
+    const body = req.body || {};
+
+    // 👇 این‌جا چند اسم مختلف را پشتیبانی می‌کنیم
+    const message =
+      body.message ||
+      body.text ||
+      body.prompt ||
+      body.content ||
+      body.q ||
+      "";
+
+    const history =
+      body.history ||
+      body.messages ||
+      body.chatHistory ||
+      [];
 
     if (!message || typeof message !== "string") {
       return res.status(400).json({
@@ -77,7 +92,6 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!response.ok) {
-      // اگر خطای محدودیت یا چیز دیگه بود
       const msg =
         data?.error?.message ||
         "خطا در ارتباط با OpenAI.";
