@@ -1,820 +1,703 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
-<head>
-  <meta charset="UTF-8" />
-  <title>chatgpt - دستیار هوشمند شما در ایتا</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <head>
+    <meta charset="utf-8" />
+    <title>ربات chatgpt ایتا</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- فونت فارسی -->
+    <link
+      href="https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font/dist/font-face.css"
+      rel="stylesheet"
+    />
+
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        background: #f3f7f4;
+        font-family: "Shabnam", sans-serif;
+      }
 
-  <style>
-    :root {
-      --green-main: #16a34a;
-      --green-main-dark: #15803d;
-      --green-soft: #e8f7ee;
-      --bg-page: #f6faf7;
-      --text-main: #111827;
-      --text-muted: #6b7280;
-      --bubble-user: #16a34a;
-      --bubble-bot: #ffffff;
-      --border-soft: #d1fae5;
-      --radius-lg: 22px;
-      --radius-xl: 26px;
-      --shadow-soft: 0 14px 30px rgba(22, 163, 74, 0.18);
-      --shadow-chip: 0 6px 15px rgba(22, 163, 74, 0.15);
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    html, body {
-      height: 100%;
-    }
-
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-        "IRANSans", "Vazirmatn", Tahoma, sans-serif;
-      background: var(--bg-page);
-      color: var(--text-main);
-      display: flex;
-      flex-direction: column;
-      align-items: stretch;
-      justify-content: flex-start;
-    }
-
-    .app {
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      max-width: 900px;
-      margin: 0 auto;
-      background: linear-gradient(145deg, #f9fffb 0%, #effdf6 48%, #e7fbf1 100%);
-    }
-
-    /* Header */
-
-    .app-header {
-      position: relative;
-      background: radial-gradient(circle at top, #22c55e 0, #15803d 55%, #166534 100%);
-      color: #ffffff;
-      padding: 14px 18px 12px;
-      box-shadow: 0 10px 25px rgba(22, 163, 74, 0.45);
-      z-index: 2;
-    }
-
-    .header-inner {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-
-    .header-main {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .bot-avatar {
-      width: 40px;
-      height: 40px;
-      border-radius: 999px;
-      border: 2px solid rgba(255,255,255,0.75);
-      background: radial-gradient(circle at 30% 20%, #fef9c3 0, #f97316 40%, #4ade80 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.25);
-      overflow: hidden;
-    }
-
-    .bot-avatar img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-
-    .bot-logo-fallback {
-      font-size: 22px;
-    }
-
-    .header-texts {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .header-title-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 18px;
-      font-weight: 700;
-      letter-spacing: -0.03em;
-    }
-
-    .header-title-row span {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .header-badge {
-      font-size: 10px;
-      padding: 2px 7px;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.16);
-      border: 1px solid rgba(255,255,255,0.35);
-      backdrop-filter: blur(4px);
-    }
-
-    .header-subtitle {
-      font-size: 11px;
-      opacity: 0.9;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .online-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 999px;
-      background: #bbf7d0;
-      box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.5);
-      animation: pulse 1.6s infinite;
-    }
-
-    .header-actions {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 4px;
-      font-size: 11px;
-      opacity: 0.92;
-    }
-
-    .hint-pill {
-      padding: 3px 8px;
-      border-radius: 999px;
-      background: rgba(6, 95, 70, 0.55);
-      border: 1px solid rgba(187, 247, 208, 0.4);
-    }
-
-    .hint-pill span {
-      opacity: 0.95;
-    }
-
-    .small-link {
-      opacity: 0.85;
-    }
-
-    /* Chat layout */
-
-    .chat-shell {
-      position: relative;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      padding: 8px 10px 10px;
-      overflow: hidden;
-    }
-
-    .chat-card {
-      position: relative;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      background: rgba(255,255,255,0.96);
-      border-radius: 26px 26px 0 0;
-      border: 1px solid #dcfce7;
-      box-shadow: var(--shadow-soft);
-      overflow: hidden;
-    }
-
-    .chat-top {
-      padding: 8px 14px 0;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-
-    .reset-btn {
-      background: none;
-      border: none;
-      padding: 6px 10px;
-      border-radius: 999px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 11px;
-      color: #047857;
-      background-color: #ecfdf5;
-      border: 1px solid #bbf7d0;
-      transition: background 0.18s, transform 0.12s, box-shadow 0.18s;
-      box-shadow: 0 0 0 rgba(0,0,0,0);
-    }
-
-    .reset-btn:hover {
-      background: #bbf7d0;
-      transform: translateY(-1px);
-      box-shadow: 0 6px 12px rgba(22, 163, 74, 0.22);
-    }
-
-    .reset-btn:active {
-      transform: translateY(0);
-      box-shadow: none;
-    }
-
-    .chat-hints {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      white-space: nowrap;
-      overflow: hidden;
-    }
-
-    .chat-hints span {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .chat-hints i {
-      font-style: normal;
-      opacity: 0.7;
-    }
-
-    .chat-body {
-      flex: 1;
-      padding: 6px 10px 6px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      scroll-behavior: smooth;
-    }
-
-    .chat-body::-webkit-scrollbar {
-      width: 4px;
-    }
-    .chat-body::-webkit-scrollbar-thumb {
-      background: #bbf7d0;
-      border-radius: 999px;
-    }
-    .chat-body::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    .chat-footer {
-      padding: 8px 10px 12px;
-      border-top: 1px solid var(--border-soft);
-      background: radial-gradient(circle at top, #ecfdf5 0, #ffffff 55%);
-    }
-
-    /* Messages */
-
-    .msg-row {
-      display: flex;
-      width: 100%;
-    }
-
-    .msg-row.user {
-      justify-content: flex-start; /* RTL: سمت راست کاربره */
-    }
-
-    .msg-row.bot {
-      justify-content: flex-end;
-    }
-
-    .msg-bubble {
-      max-width: 82%;
-      border-radius: var(--radius-lg);
-      padding: 9px 12px;
-      font-size: 13px;
-      line-height: 1.7;
-      position: relative;
-      box-shadow: 0 8px 20px rgba(15, 118, 110, 0.07);
-    }
-
-    .msg-row.user .msg-bubble {
-      background: var(--bubble-user);
-      color: #ecfdf3;
-      border-bottom-right-radius: 4px;
-    }
-
-    .msg-row.bot .msg-bubble {
-      background: var(--bubble-bot);
-      color: var(--text-main);
-      border-bottom-left-radius: 4px;
-      border: 1px solid #e5e7eb;
-    }
-
-    .msg-meta {
-      margin-top: 4px;
-      font-size: 10px;
-      opacity: 0.7;
-      display: flex;
-      justify-content: flex-start;
-      gap: 4px;
-    }
-
-    .msg-row.bot .msg-meta {
-      justify-content: flex-end;
-    }
-
-    .msg-author {
-      font-weight: 500;
-    }
-
-    .msg-time {
-      font-variant-numeric: tabular-nums;
-    }
-
-    .msg-system {
-      align-self: center;
-      font-size: 11px;
-      color: var(--text-muted);
-      background: #ecfdf5;
-      padding: 5px 10px;
-      border-radius: 999px;
-      border: 1px dashed #bbf7d0;
-      margin: 6px auto;
-    }
-
-    /* Typing indicator */
-
-    .typing {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-
-    .typing-dots {
-      display: inline-flex;
-      align-items: center;
-      gap: 3px;
-      margin-right: 4px;
-    }
-
-    .typing-dot {
-      width: 5px;
-      height: 5px;
-      border-radius: 999px;
-      background: #9ca3af;
-      animation: typing 1.2s infinite ease-in-out;
-    }
-
-    .typing-dot:nth-child(2) {
-      animation-delay: 0.15s;
-    }
-    .typing-dot:nth-child(3) {
-      animation-delay: 0.3s;
-    }
-
-    /* Input area */
-
-    .chat-form {
-      display: flex;
-      align-items: flex-end;
-      gap: 8px;
-    }
-
-    .input-wrap {
-      flex: 1;
-      background: #f9fafb;
-      border-radius: 999px;
-      border: 1px solid #e5e7eb;
-      padding: 5px 10px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      box-shadow: 0 3px 10px rgba(15, 23, 42, 0.06);
-    }
-
-    .input-wrap:focus-within {
-      border-color: #34d399;
-      box-shadow: 0 0 0 1px #a7f3d0, 0 6px 16px rgba(22, 163, 74, 0.2);
-      background: #ffffff;
-    }
-
-    .chat-input {
-      flex: 1;
-      border: none;
-      outline: none;
-      background: transparent;
-      resize: none;
-      max-height: 70px;
-      min-height: 24px;
-      font-size: 13px;
-      line-height: 1.6;
-      direction: rtl;
-    }
-
-    .chat-input::placeholder {
-      color: #9ca3af;
-    }
-
-    .icon-button {
-      border: none;
-      background: none;
-      cursor: pointer;
-      font-size: 18px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 2px;
-      color: #6b7280;
-      transition: transform 0.12s, color 0.15s;
-    }
-
-    .icon-button:hover {
-      transform: translateY(-1px);
-      color: #16a34a;
-    }
-
-    .send-button {
-      border: none;
-      border-radius: 999px;
-      padding: 9px 15px;
-      font-size: 13px;
-      font-weight: 600;
-      background: linear-gradient(135deg, #22c55e, #16a34a);
-      color: #ffffff;
-      cursor: pointer;
-      box-shadow: 0 12px 20px rgba(22, 163, 74, 0.35);
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      white-space: nowrap;
-      transition: transform 0.1s ease, box-shadow 0.1s ease, filter 0.1s ease;
-    }
-
-    .send-button span {
-      font-size: 15px;
-    }
-
-    .send-button:disabled {
-      opacity: 0.65;
-      cursor: default;
-      box-shadow: 0 6px 12px rgba(15,23,42,0.12);
-    }
-
-    .send-button:not(:disabled):hover {
-      transform: translateY(-1px);
-      filter: brightness(1.05);
-    }
-
-    .send-button:not(:disabled):active {
-      transform: translateY(0);
-      box-shadow: 0 4px 10px rgba(22, 163, 74, 0.22);
-    }
-
-    /* Emoji panel */
-
-    .emoji-panel {
-      position: absolute;
-      bottom: 62px;
-      right: 22px;
-      background: #ffffff;
-      border-radius: 999px;
-      border: 1px solid #e5e7eb;
-      padding: 4px 8px;
-      display: none;
-      align-items: center;
-      gap: 4px;
-      box-shadow: var(--shadow-chip);
-      z-index: 10;
-    }
-
-    .emoji-panel button {
-      border: none;
-      background: #f3f4f6;
-      border-radius: 999px;
-      padding: 3px 6px;
-      cursor: pointer;
-      font-size: 16px;
-      transition: transform 0.08s, background 0.12s;
-    }
-
-    .emoji-panel button:hover {
-      background: #e5e7eb;
-      transform: translateY(-1px);
-    }
-
-    /* Animations */
-
-    @keyframes pulse {
-      0% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.3); opacity: 0.7; }
-      100% { transform: scale(1); opacity: 1; }
-    }
-
-    @keyframes typing {
-      0%, 60%, 100% { transform: translateY(0); opacity: 0.25; }
-      30% { transform: translateY(-2px); opacity: 1; }
-    }
-
-    /* Small screens */
-
-    @media (max-width: 600px) {
       .app {
-        border-radius: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
       }
-      .chat-card {
-        border-radius: 22px 22px 0 0;
-      }
-      .msg-bubble {
-        max-width: 88%;
-      }
-    }
-  </style>
-</head>
 
-<body>
-  <div class="app">
-    <!-- Header -->
-    <header class="app-header">
-      <div class="header-inner">
-        <div class="header-main">
-          <div class="bot-avatar">
-            <!-- لوگوی طاویتا -->
-            <img src="https://cdnfa.com/irangiah/a9be/uploads/new5/picsart-25-11-11-18-20-53-865.png"
-                 alt="Tavita Logo"
-                 onerror="this.style.display='none'; this.parentElement.innerHTML='<span class=&quot;bot-logo-fallback&quot;>🤖</span>';">
+      /* 🎨 هدر سبز مینیمال */
+      .app-header {
+        background: linear-gradient(135deg, #0f9d58, #12b565);
+        color: #ffffff;
+        padding: 14px 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+      }
+
+      .app-header-avatar {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+
+      .app-header-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .app-header-title {
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .app-header-subtitle {
+        font-size: 13px;
+        opacity: 0.9;
+      }
+
+      /* بدنه چت */
+      .chat-wrapper {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        padding: 10px;
+      }
+
+      .chat-container {
+        width: 100%;
+        max-width: 720px;
+        background: rgba(255, 255, 255, 0.85);
+        border-radius: 18px 18px 0 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .chat-messages {
+        padding: 16px 14px 8px;
+        overflow-y: auto;
+        flex: 1;
+      }
+
+      .message-row {
+        display: flex;
+        margin-bottom: 10px;
+      }
+
+      /* چون صفحه RTL است، flex-start = راست و flex-end = چپ */
+      .message-row.user {
+        justify-content: flex-start; /* کاربر راست */
+      }
+
+      .message-row.bot {
+        justify-content: flex-start; /* ربات هم راست، ولی با کاراکتر چپ حباب */
+        align-items: flex-end;
+      }
+
+      .message-bubble {
+        max-width: 80%;
+        padding: 10px 14px;
+        border-radius: 18px;
+        font-size: 15px;
+        line-height: 1.9;
+        white-space: pre-wrap;
+        position: relative;
+      }
+
+      /* ☘️ حباب ربات */
+      .message-bubble.bot {
+        background: #ffffff;
+        color: #1a1a1a;
+        border: 1px solid #e0f2e9;
+        box-shadow: 0 4px 12px rgba(15, 157, 88, 0.1);
+        border-radius: 18px 18px 18px 4px;
+      }
+
+      /* 💚 حباب کاربر */
+      .message-bubble.user {
+        background: #0f9d58;
+        color: #ffffff;
+        border-radius: 18px 18px 4px 18px;
+        box-shadow: 0 4px 12px rgba(15, 157, 88, 0.4);
+      }
+
+      .message-meta {
+        margin-top: 4px;
+        font-size: 11px;
+        opacity: 0.65;
+      }
+
+      /* کاراکتر طاویتا کنار حباب ربات */
+      .bot-character {
+        width: 52px;
+        margin-right: -10px; /* کمی وارد حباب */
+        margin-left: 4px;
+        pointer-events: none;
+      }
+
+      .bot-character img {
+        width: 100%;
+        display: block;
+        transform-origin: bottom center;
+        animation: tavita-wave 1.2s ease-in-out 1;
+      }
+
+      @keyframes tavita-wave {
+        0% {
+          transform: translateY(0) rotate(0);
+        }
+        25% {
+          transform: translateY(-3px) rotate(-4deg);
+        }
+        50% {
+          transform: translateY(0) rotate(3deg);
+        }
+        75% {
+          transform: translateY(-2px) rotate(-2deg);
+        }
+        100% {
+          transform: translateY(0) rotate(0);
+        }
+      }
+
+      /* سه‌نقطه تایپینگ */
+      .typing {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .typing-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #7ebd9b;
+        animation: bounce 1s infinite ease-in-out;
+      }
+
+      .typing-dot:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+
+      .typing-dot:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+
+      @keyframes bounce {
+        0%,
+        80%,
+        100% {
+          opacity: 0.4;
+          transform: translateY(0);
+        }
+        40% {
+          opacity: 1;
+          transform: translateY(-4px);
+        }
+      }
+
+      /* پاک‌کردن چت */
+      .top-actions {
+        text-align: left;
+        padding: 8px 16px;
+      }
+
+      .clear-button {
+        background: transparent;
+        border: none;
+        color: #0f9d58;
+        font-size: 12px;
+        cursor: pointer;
+      }
+
+      .clear-button:hover {
+        text-decoration: underline;
+      }
+
+      /* ورودی + بازی */
+      .chat-input-wrapper {
+        border-top: 1px solid #dceee3;
+        background: #ffffff;
+        padding: 8px 12px 4px;
+        position: relative;
+      }
+
+      .chat-input-inner {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .chat-textarea {
+        flex: 1;
+        border-radius: 16px;
+        border: 1px solid #b8dec9;
+        padding: 10px 12px;
+        font-size: 14px;
+        resize: none;
+        min-height: 40px;
+        background: #f5fbf7;
+      }
+
+      .chat-textarea:focus {
+        border-color: #0f9d58;
+        box-shadow: 0 0 0 2px rgba(15, 157, 88, 0.2);
+        background: #ffffff;
+        outline: none;
+      }
+
+      .emoji-button {
+        background: #ffffff;
+        border-radius: 12px;
+        border: 1px solid #d5eadf;
+        width: 40px;
+        height: 40px;
+        cursor: pointer;
+        font-size: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .send-button {
+        background: #0f9d58;
+        color: #ffffff;
+        border: none;
+        border-radius: 14px;
+        padding: 0 16px;
+        height: 40px;
+        cursor: pointer;
+        font-size: 14px;
+        box-shadow: 0 3px 8px rgba(15, 157, 88, 0.3);
+        transition: 0.15s;
+        white-space: nowrap;
+      }
+
+      .send-button:active {
+        transform: scale(0.95);
+      }
+
+      /* پنل ایموجی */
+      .emoji-picker {
+        position: absolute;
+        bottom: 88px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.15);
+        padding: 6px 8px;
+        display: flex;
+        gap: 4px;
+        z-index: 10;
+      }
+
+      .emoji-picker span {
+        cursor: pointer;
+        font-size: 20px;
+        padding: 4px;
+        border-radius: 8px;
+      }
+
+      .emoji-picker span:hover {
+        background: #f3f7f4;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      /* نوار بازی سنگ‌کاغذقیچی */
+      .game-bar {
+        max-width: 720px;
+        margin: 6px auto 2px;
+        padding: 6px 10px 4px;
+        border-radius: 14px;
+        background: #ecfdf3;
+        border: 1px solid #bbf7d0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 12px;
+        color: #065f46;
+      }
+
+      .game-bar-title {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 500;
+      }
+
+      .game-buttons {
+        display: flex;
+        gap: 6px;
+        margin-top: 2px;
+      }
+
+      .game-btn {
+        flex: 1;
+        border-radius: 999px;
+        border: none;
+        padding: 5px 0;
+        font-size: 13px;
+        cursor: pointer;
+        background: #ffffff;
+        color: #065f46;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);
+      }
+
+      .game-btn span {
+        font-size: 16px;
+      }
+
+      .game-btn:active {
+        transform: scale(0.97);
+      }
+
+      @media (max-width: 600px) {
+        .game-bar {
+          font-size: 11px;
+        }
+        .game-btn {
+          font-size: 12px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="app">
+      <!-- هدر سبز با لوگوی طاویتا -->
+      <header class="app-header">
+        <div class="app-header-avatar">
+          <img
+            src="https://cdnfa.com/irangiah/a9be/uploads/new5/picsart-25-11-11-18-20-53-865.png"
+            alt="لوگو طاویتا"
+          />
+        </div>
+        <div>
+          <div class="app-header-title">chatgpt</div>
+          <div class="app-header-subtitle">دستیار هوشمند شما در ایتا 🌿</div>
+        </div>
+      </header>
+
+      <div class="chat-wrapper">
+        <div class="chat-container">
+          <div class="top-actions">
+            <button id="clearChat" class="clear-button">پاک کردن چت 🧹</button>
           </div>
-          <div class="header-texts">
-            <div class="header-title-row">
-              <span>chatgpt</span>
-              <div class="header-badge">
-                نسخه ویژه طاویتا
+
+          <div id="chatMessages" class="chat-messages"></div>
+
+          <!-- ورودی + بازی -->
+          <div class="chat-input-wrapper">
+            <form id="chatForm" class="chat-input-inner">
+              <textarea
+                id="userInput"
+                class="chat-textarea"
+                placeholder="یه سؤال بپرس..."
+              ></textarea>
+
+              <button
+                type="button"
+                id="emojiBtn"
+                class="emoji-button"
+                aria-label="ایموجی"
+              >
+                🙂
+              </button>
+
+              <button type="submit" id="sendBtn" class="send-button">
+                ارسال 🚀
+              </button>
+            </form>
+
+            <!-- پنل ایموجی -->
+            <div id="emojiPicker" class="emoji-picker hidden">
+              <span>🙂</span>
+              <span>😊</span>
+              <span>😂</span>
+              <span>🥲</span>
+              <span>✨</span>
+              <span>🌱</span>
+              <span>💚</span>
+              <span>🚀</span>
+            </div>
+
+            <!-- نوار بازی -->
+            <div class="game-bar">
+              <div class="game-bar-title">
+                <span>🎮</span>
+                <span>با طاویتا سنگ‌کاغذقیچی بازی کن</span>
+              </div>
+              <div class="game-buttons">
+                <button
+                  type="button"
+                  class="game-btn"
+                  data-move="rock"
+                >
+                  <span>🪨</span>
+                  <span>سنگ</span>
+                </button>
+                <button
+                  type="button"
+                  class="game-btn"
+                  data-move="paper"
+                >
+                  <span>📄</span>
+                  <span>کاغذ</span>
+                </button>
+                <button
+                  type="button"
+                  class="game-btn"
+                  data-move="scissors"
+                >
+                  <span>✂️</span>
+                  <span>قیچی</span>
+                </button>
               </div>
             </div>
-            <div class="header-subtitle">
-              <div class="online-dot"></div>
-              <span>دستیار هوشمند شما در ایتا</span>
-            </div>
-          </div>
-        </div>
-        <div class="header-actions">
-          <div class="hint-pill">
-            <span>💡 بهتر می‌نویسم اگر دقیق بپرسی</span>
-          </div>
-          <div class="small-link">
-            🌿 مدرسه هوش مصنوعی طاویتا
           </div>
         </div>
       </div>
-    </header>
+    </div>
 
-    <!-- Chat card -->
-    <main class="chat-shell">
-      <section class="chat-card">
-        <div class="chat-top">
-          <div class="chat-hints">
-            <span>✨ پیشنهاد:</span>
-            <span><i>«یک پاراگراف درباره من بنویس»</i></span>
-          </div>
-          <button class="reset-btn" id="resetChatBtn" type="button">
-            🧹 پاک کردن چت
-          </button>
-        </div>
+    <script>
+      const chatMessages = document.getElementById("chatMessages");
+      const chatForm = document.getElementById("chatForm");
+      const userInput = document.getElementById("userInput");
+      const sendBtn = document.getElementById("sendBtn");
+      const clearBtn = document.getElementById("clearChat");
+      const emojiBtn = document.getElementById("emojiBtn");
+      const emojiPicker = document.getElementById("emojiPicker");
+      const gameButtons = document.querySelectorAll(".game-btn");
 
-        <div class="chat-body" id="chatBody">
-          <div class="msg-row bot">
-            <div class="msg-bubble">
-              <div>سلام 👋 خوش اومدی! چطور می‌تونم کمکت کنم؟</div>
-              <div class="msg-meta">
-                <span class="msg-author">chatgpt</span>
-                <span class="msg-time">الان</span>
-              </div>
-            </div>
-          </div>
-        </div>
+      // پیام خوش‌آمد
+      addBotMessage(
+        "سلام 👋 خوش اومدی!\nمن دستیار chatgpt هستم.\nهر سؤالی رو به‌صورت مستقل جواب می‌دم، پس هر بار توضیحت رو کامل بنویس 🌿"
+      );
 
-        <div class="chat-footer">
-          <form class="chat-form" id="chatForm">
-            <div class="input-wrap">
-              <button class="icon-button" type="button" id="emojiToggle" aria-label="ایموجی">
-                😊
-              </button>
-              <textarea
-                id="userInput"
-                class="chat-input"
-                rows="1"
-                placeholder="اینجا بنویسید..."
-              ></textarea>
-            </div>
-            <button class="send-button" id="sendBtn" type="submit">
-              <span>🚀</span>
-              <span>ارسال</span>
-            </button>
-          </form>
+      // پاک کردن چت
+      clearBtn.addEventListener("click", () => {
+        chatMessages.innerHTML = "";
+        addBotMessage("چت پاک شد. هر موقع آماده بودی، یه سؤال جدید بپرس 🌱");
+      });
 
-          <div class="emoji-panel" id="emojiPanel">
-            <button type="button">😊</button>
-            <button type="button">✨</button>
-            <button type="button">🌿</button>
-            <button type="button">🔥</button>
-            <button type="button">❤️</button>
-          </div>
-        </div>
-      </section>
-    </main>
-  </div>
+      // باز و بسته کردن پنل ایموجی
+      emojiBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        emojiPicker.classList.toggle("hidden");
+      });
 
-  <script>
-    (function () {
-      const chatBody   = document.getElementById('chatBody');
-      const chatForm   = document.getElementById('chatForm');
-      const userInput  = document.getElementById('userInput');
-      const sendBtn    = document.getElementById('sendBtn');
-      const resetBtn   = document.getElementById('resetChatBtn');
-      const emojiToggle = document.getElementById('emojiToggle');
-      const emojiPanel  = document.getElementById('emojiPanel');
-
-      let isSending = false;
-
-      function nowTime() {
-        const d = new Date();
-        const hh = String(d.getHours()).padStart(2, '0');
-        const mm = String(d.getMinutes()).padStart(2, '0');
-        return hh + ':' + mm;
-      }
-
-      function scrollToBottom() {
-        requestAnimationFrame(() => {
-          chatBody.scrollTop = chatBody.scrollHeight;
+      // کلیک روی هر ایموجی
+      emojiPicker.querySelectorAll("span").forEach((span) => {
+        span.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const emoji = span.textContent;
+          userInput.value = (userInput.value + " " + emoji).trim();
+          userInput.focus();
+          emojiPicker.classList.add("hidden");
         });
-      }
+      });
 
-      function addMessage({ text, from }) {
-        const row = document.createElement('div');
-        row.className = 'msg-row ' + (from === 'user' ? 'user' : 'bot');
-
-        const bubble = document.createElement('div');
-        bubble.className = 'msg-bubble';
-
-        const content = document.createElement('div');
-        content.textContent = text;
-
-        const meta = document.createElement('div');
-        meta.className = 'msg-meta';
-
-        const author = document.createElement('span');
-        author.className = 'msg-author';
-        author.textContent = from === 'user' ? 'شما' : 'chatgpt';
-
-        const time = document.createElement('span');
-        time.className = 'msg-time';
-        time.textContent = nowTime();
-
-        meta.appendChild(author);
-        meta.appendChild(time);
-
-        bubble.appendChild(content);
-        bubble.appendChild(meta);
-        row.appendChild(bubble);
-        chatBody.appendChild(row);
-        scrollToBottom();
-      }
-
-      function addSystemMessage(text) {
-        const div = document.createElement('div');
-        div.className = 'msg-system';
-        div.textContent = text;
-        chatBody.appendChild(div);
-        scrollToBottom();
-      }
-
-      function showTyping() {
-        const row = document.createElement('div');
-        row.className = 'msg-row bot';
-        row.id = 'typingRow';
-
-        const bubble = document.createElement('div');
-        bubble.className = 'msg-bubble';
-
-        bubble.innerHTML = `
-          <div class="typing">
-            <span class="typing-dots">
-              <span class="typing-dot"></span>
-              <span class="typing-dot"></span>
-              <span class="typing-dot"></span>
-            </span>
-            در حال نوشتن...
-          </div>
-        `;
-
-        row.appendChild(bubble);
-        chatBody.appendChild(row);
-        scrollToBottom();
-      }
-
-      function hideTyping() {
-        const row = document.getElementById('typingRow');
-        if (row && row.parentNode) {
-          row.parentNode.removeChild(row);
+      // بستن پنل با کلیک بیرون
+      document.addEventListener("click", (e) => {
+        if (
+          !emojiPicker.contains(e.target) &&
+          e.target !== emojiBtn &&
+          !emojiBtn.contains(e.target)
+        ) {
+          emojiPicker.classList.add("hidden");
         }
-      }
+      });
 
-      async function sendMessage(message) {
-        if (!message.trim()) return;
-        if (isSending) return;
+      // ارسال پیام معمولی
+      chatForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const text = userInput.value.trim();
+        if (!text) return;
 
-        isSending = true;
+        addUserMessage(text);
+        userInput.value = "";
+
+        const typingId = showTyping();
         sendBtn.disabled = true;
 
-        addMessage({ text: message, from: 'user' });
-        userInput.value = '';
-        emojiPanel.style.display = 'none';
-
-        showTyping();
-
         try {
-          const res = await fetch('/api/chat', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ message })
+          const res = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text }),
           });
 
           const data = await res.json().catch(() => ({}));
-          hideTyping();
+          hideTyping(typingId);
 
-          if (!res.ok || !data || data.ok === false || !data.answer) {
-            const errMsg =
-              (data && data.error) ||
-              '❌ خطا از سمت سرور. لطفاً چند لحظهٔ دیگر دوباره تلاش کنید.';
-            addMessage({ text: errMsg, from: 'bot' });
+          if (!res.ok) {
+            addBotMessage("❌ خطا در اتصال به سرور. لطفاً دوباره امتحان کن.");
           } else {
-            addMessage({ text: data.answer, from: 'bot' });
+            addBotMessage(data.answer || "پاسخی دریافت نشد.");
           }
         } catch (err) {
-          console.error(err);
-          hideTyping();
-          addMessage({
-            text: '❌ خطای شبکه رخ داد. اتصال اینترنت یا فیلترشکن را بررسی کنید.',
-            from: 'bot'
-          });
-        } finally {
-          isSending = false;
-          sendBtn.disabled = false;
-          userInput.focus();
+          hideTyping(typingId);
+          addBotMessage("❌ مشکل غیرمنتظره. اینترنت یا VPN را بررسی کن.");
         }
+
+        sendBtn.disabled = false;
+      });
+
+      function addUserMessage(text) {
+        const row = document.createElement("div");
+        row.className = "message-row user";
+
+        const bubble = document.createElement("div");
+        bubble.className = "message-bubble user";
+        bubble.textContent = text;
+
+        row.appendChild(bubble);
+        chatMessages.appendChild(row);
+        scrollToEnd();
       }
 
-      chatForm.addEventListener('submit', function (e) {
-        e.preventDefault();
-        const msg = userInput.value.trim();
-        if (!msg) return;
-        sendMessage(msg);
-      });
+      function addBotMessage(text) {
+        const row = document.createElement("div");
+        row.className = "message-row bot";
 
-      userInput.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
-          const msg = userInput.value.trim();
-          if (!msg) return;
-          sendMessage(msg);
+        const bubble = document.createElement("div");
+        bubble.className = "message-bubble bot";
+
+        const content = document.createElement("div");
+        content.textContent = text;
+
+        const meta = document.createElement("div");
+        meta.className = "message-meta";
+        meta.textContent = "chatgpt";
+
+        bubble.appendChild(content);
+        bubble.appendChild(meta);
+
+        // حباب اول، بعد کاراکتر (در RTL کاراکتر می‌رود سمت چپ حباب)
+        row.appendChild(bubble);
+
+        const char = document.createElement("div");
+        char.className = "bot-character";
+        const img = document.createElement("img");
+        img.src =
+          "https://cdnfa.com/irangiah/a9be/uploads/new12/picsart-25-11-13-15-57-05-527.png";
+        img.alt = "کاراکتر طاویتا";
+        char.appendChild(img);
+        row.appendChild(char);
+
+        chatMessages.appendChild(row);
+        scrollToEnd();
+      }
+
+      function showTyping() {
+        const id = "typing-" + Date.now();
+        const row = document.createElement("div");
+        row.className = "message-row bot";
+        row.id = id;
+
+        const bubble = document.createElement("div");
+        bubble.className = "message-bubble bot typing";
+
+        for (let i = 0; i < 3; i++) {
+          const dot = document.createElement("span");
+          dot.className = "typing-dot";
+          bubble.appendChild(dot);
         }
-      });
 
-      resetBtn.addEventListener('click', function () {
-        chatBody.innerHTML = '';
-        addSystemMessage('چت پاک شد. هر سؤالی داری دوباره بپرس 🌿');
-      });
+        row.appendChild(bubble);
+        chatMessages.appendChild(row);
+        scrollToEnd();
+        return id;
+      }
 
-      emojiToggle.addEventListener('click', function () {
-        emojiPanel.style.display =
-          emojiPanel.style.display === 'flex' ? 'none' : 'flex';
-      });
+      function hideTyping(id) {
+        const item = document.getElementById(id);
+        if (item) item.remove();
+      }
 
-      emojiPanel.addEventListener('click', function (e) {
-        if (e.target.tagName === 'BUTTON') {
-          const emoji = e.target.textContent;
-          userInput.value += (userInput.value ? ' ' : '') + emoji;
-          userInput.focus();
-        }
-      });
+      function scrollToEnd() {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
 
-      document.addEventListener('click', function (e) {
+      /* 🎮 منطق بازی سنگ‌کاغذقیچی با طاویتا */
+      const moveLabelsUser = {
+        rock: "سنگ 🪨",
+        paper: "کاغذ 📄",
+        scissors: "قیچی ✂️",
+      };
+
+      const moveLabelsBot = {
+        rock: "سنگ 🪨",
+        paper: "کاغذ 📄",
+        scissors: "قیچی ✂️",
+      };
+
+      function getBotMove() {
+        const moves = ["rock", "paper", "scissors"];
+        const index = Math.floor(Math.random() * moves.length);
+        return moves[index];
+      }
+
+      function getResult(user, bot) {
+        if (user === bot) return "draw";
+
         if (
-          !emojiPanel.contains(e.target) &&
-          !emojiToggle.contains(e.target)
+          (user === "rock" && bot === "scissors") ||
+          (user === "paper" && bot === "rock") ||
+          (user === "scissors" && bot === "paper")
         ) {
-          emojiPanel.style.display = 'none';
+          return "user";
         }
+
+        return "bot";
+      }
+
+      gameButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const userMove = btn.getAttribute("data-move");
+          const botMove = getBotMove();
+
+          // پیام کاربر
+          addUserMessage(`شما ${moveLabelsUser[userMove]} را انتخاب کردی.`);
+
+          // نتیجه بازی
+          const result = getResult(userMove, botMove);
+          let resultText = "";
+
+          if (result === "user") {
+            resultText = "تبریک! تو بردی 😍🔥";
+          } else if (result === "draw") {
+            resultText = "این‌بار مساوی شد 🙂";
+          } else {
+            resultText = "طاویتا برد 😄💫";
+          }
+
+          const botText = `طاویتا ${moveLabelsBot[botMove]} را انتخاب کرد.\n${resultText}`;
+          addBotMessage(botText);
+        });
       });
-    })();
-  </script>
-</body>
+    </script>
+  </body>
 </html>
