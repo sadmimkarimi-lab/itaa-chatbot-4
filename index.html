@@ -1,299 +1,391 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>چت GPT در ایتا</title>
+  <head>
+    <meta charset="utf-8" />
+    <title>ربات chatgpt ایتا</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- اسکریپت ایتا (اگر لازم شد) -->
-  <script src="https://developer.eitaa.com/eitaa-web-app.js"></script>
+    <!-- فونت فارسی -->
+    <link
+      href="https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font/dist/font-face.css"
+      rel="stylesheet"
+    />
 
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: 'Roboto', sans-serif;
-      background: #f4f7fb;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
+    <style>
+      * {
+        box-sizing: border-box;
+      }
 
-    /* هدر سبز */
-    .topbar {
-      background: #0f9d58;
-      color: #fff;
-      padding: 14px 16px 10px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      box-shadow: 0 2px 4px rgba(0,0,0,.1);
-      position: relative;
-      border-radius: 0 0 20px 20px;
-    }
+      body {
+        margin: 0;
+        padding: 0;
+        background: #f3f7f4;
+        font-family: "Shabnam", sans-serif;
+      }
 
-    /* لوگو */
-    .topbar-logo {
-      width: 50px;
-      height: 50px;
-      background: rgba(255,255,255,.25);
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-    }
+      .app {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
 
-    /* عنوان */
-    .topbar-title {
-      font-size: 18px;
-      font-weight: 600;
-      line-height: 1.2;
-      margin-left: 10px;
-    }
+      /* 🎨 هدر سبز */
+      .app-header {
+        background: linear-gradient(135deg, #0f9d58, #12b565);
+        color: #ffffff;
+        padding: 14px 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+      }
 
-    /* دکمه پاک کردن چت */
-    .clear-chat {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: #fff;
-      border: none;
-      border-radius: 12px;
-      padding: 5px 12px;
-      font-size: 14px;
-      cursor: pointer;
-    }
+      .app-header-avatar {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        color: #0f9d58;
+      }
 
-    /* لیست پیام‌ها */
-    .chat-wrapper {
-      flex: 1;
-      overflow-y: auto;
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
+      .app-header-title {
+        font-size: 18px;
+        font-weight: 700;
+      }
 
-    /* استایل پیام‌ها */
-    .msg {
-      max-width: 80%;
-      padding: 15px 20px;
-      border-radius: 20px;
-      line-height: 1.8;
-      font-size: 16px;
-      background: #fff;
-      box-shadow: 0 4px 6px rgba(0,0,0,.2);
-      transition: all 0.3s ease;
-      font-family: 'Arial', sans-serif;
-      margin-bottom: 10px;
-    }
+      .app-header-subtitle {
+        font-size: 13px;
+        opacity: 0.9;
+      }
 
-    .msg.user {
-      background: #d1e7ff;
-      align-self: flex-start;
-      border-top-left-radius: 30px;
-      text-align: right;
-    }
+      /* بدنه چت */
+      .chat-wrapper {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        padding: 10px;
+      }
 
-    .msg.bot {
-      background: #fff;
-      align-self: flex-start;
-      border-top-right-radius: 30px;
-      text-align: left;
-    }
+      .chat-container {
+        width: 100%;
+        max-width: 720px;
+        background: rgba(255, 255, 255, 0.85);
+        border-radius: 18px 18px 0 0;
+        display: flex;
+        flex-direction: column;
+      }
 
-    .msg.loading {
-      background: #e9e9e9;
-      color: #888;
-      text-align: center;
-      font-style: italic;
-    }
+      .chat-messages {
+        padding: 16px 14px 8px;
+        overflow-y: auto;
+        flex: 1;
+      }
 
-    /* نوار ورودی */
-    .input-bar {
-      display: flex;
-      gap: 12px;
-      padding: 10px;
-      background: #fff;
-      border-top: 1px solid #ddd;
-      border-radius: 10px;
-      box-shadow: 0 -1px 3px rgba(0,0,0,.1);
-    }
+      .message-row {
+        display: flex;
+        margin-bottom: 10px;
+      }
 
-    .input-bar input {
-      flex: 1;
-      padding: 12px 16px;
-      border-radius: 12px;
-      border: 1px solid #ccc;
-      font-size: 14px;
-      transition: border-color 0.2s ease;
-    }
+      .message-row.bot {
+        justify-content: flex-start;
+      }
 
-    .input-bar input:focus {
-      border-color: #0f9d58;
-      outline: none;
-    }
+      .message-row.user {
+        justify-content: flex-end;
+      }
 
-    .input-bar button {
-      background: #0f9d58;
-      color: #fff;
-      border: none;
-      border-radius: 12px;
-      padding: 0 16px;
-      font-size: 14px;
-      cursor: pointer;
-      transition: background-color 0.2s ease;
-    }
+      .message-bubble {
+        max-width: 80%;
+        padding: 10px 14px;
+        border-radius: 18px;
+        font-size: 15px;
+        line-height: 1.9;
+        white-space: pre-wrap;
+      }
 
-    .input-bar button:hover {
-      background-color: #0c7c44;
-    }
+      /* ☘️ حباب ربات */
+      .message-bubble.bot {
+        background: #ffffff;
+        color: #1a1a1a;
+        border: 1px solid #e0f2e9;
+        box-shadow: 0 4px 12px rgba(15, 157, 88, 0.1);
+        border-radius: 18px 18px 18px 4px;
+      }
 
-    /* پنل ایموجی */
-    .emoji-panel {
-      position: absolute;
-      bottom: 70px;
-      left: 20px;
-      display: none;
-      flex-wrap: wrap;
-      gap: 12px;
-      background: #fff;
-      padding: 15px;
-      border-radius: 12px;
-      box-shadow: 0 2px 4px rgba(0,0,0,.1);
-      transition: opacity 0.3s ease;
-    }
+      /* 💚 حباب کاربر */
+      .message-bubble.user {
+        background: #0f9d58;
+        color: white;
+        border-radius: 18px 18px 4px 18px;
+        box-shadow: 0 4px 12px rgba(15, 157, 88, 0.4);
+      }
 
-    .emoji-panel span {
-      font-size: 28px;
-      cursor: pointer;
-    }
-  </style>
-</head>
-<body>
+      .message-meta {
+        margin-top: 4px;
+        font-size: 11px;
+        opacity: 0.65;
+      }
 
-  <!-- هدر بالا -->
-  <div class="topbar">
-    <div class="topbar-logo">
-      <img src="https://cdnfa.com/irangiah/a9be/uploads/new5/picsart-25-11-11-18-20-53-865.png"
-           alt="Logo" style="width: 40px; height: 40px;"/>
+      /* تایپینگ */
+      .typing {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .typing-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #7ebd9b;
+        animation: bounce 1s infinite ease-in-out;
+      }
+
+      .typing-dot:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+
+      .typing-dot:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+
+      @keyframes bounce {
+        0%,
+        80%,
+        100% {
+          opacity: 0.4;
+          transform: translateY(0);
+        }
+        40% {
+          opacity: 1;
+          transform: translateY(-4px);
+        }
+      }
+
+      /* ورودی */
+      .chat-input-wrapper {
+        border-top: 1px solid #dceee3;
+        background: #ffffff;
+        padding: 8px 12px;
+      }
+
+      .chat-input-inner {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        gap: 8px;
+      }
+
+      .chat-textarea {
+        flex: 1;
+        border-radius: 16px;
+        border: 1px solid #b8dec9;
+        padding: 10px 12px;
+        font-size: 14px;
+        resize: none;
+        min-height: 40px;
+        background: #f5fbf7;
+      }
+
+      .chat-textarea:focus {
+        border-color: #0f9d58;
+        box-shadow: 0 0 0 2px rgba(15, 157, 88, 0.2);
+        background: #ffffff;
+        outline: none;
+      }
+
+      .send-button {
+        background: #0f9d58;
+        color: #ffffff;
+        border: none;
+        border-radius: 14px;
+        padding: 0 18px;
+        height: 40px;
+        cursor: pointer;
+        font-size: 14px;
+        box-shadow: 0 3px 8px rgba(15, 157, 88, 0.3);
+        transition: 0.15s;
+      }
+
+      .send-button:active {
+        transform: scale(0.95);
+      }
+
+      /* پاک‌کردن چت */
+      .top-actions {
+        text-align: left;
+        padding: 8px 16px;
+      }
+
+      .clear-button {
+        background: transparent;
+        border: none;
+        color: #0f9d58;
+        font-size: 12px;
+        cursor: pointer;
+      }
+
+      .clear-button:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="app">
+      <!-- هدر سبز -->
+      <header class="app-header">
+        <div class="app-header-avatar">🤖</div>
+        <div>
+          <div class="app-header-title">chatgpt</div>
+          <div class="app-header-subtitle">دستیار هوشمند شما در ایتا</div>
+        </div>
+      </header>
+
+      <div class="chat-wrapper">
+        <div class="chat-container">
+          <div class="top-actions">
+            <button id="clearChat" class="clear-button">پاک کردن چت</button>
+          </div>
+
+          <div id="chatMessages" class="chat-messages"></div>
+
+          <!-- ورودی -->
+          <div class="chat-input-wrapper">
+            <form id="chatForm" class="chat-input-inner">
+              <textarea
+                id="userInput"
+                class="chat-textarea"
+                placeholder="اینجا بنویسید..."
+              ></textarea>
+              <button type="submit" id="sendBtn" class="send-button">
+                ارسال 🚀
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="topbar-title">
-      CHATGPT
-      <div style="font-size:11px;opacity:.9;">مدرسه هوش مصنوعی طاویتا</div>
-    </div>
-    <button class="clear-chat">پاک کردن چت</button>
-  </div>
 
-  <!-- لیست پیام‌ها -->
-  <div id="chat" class="chat-wrapper">
-    <div class="msg bot">سلام 👋 من چت‌بات هوشمند هستم. بپرس 😊</div>
-  </div>
+    <script>
+      const chatMessages = document.getElementById("chatMessages");
+      const chatForm = document.getElementById("chatForm");
+      const userInput = document.getElementById("userInput");
+      const sendBtn = document.getElementById("sendBtn");
+      const clearBtn = document.getElementById("clearChat");
 
-  <!-- پنل ایموجی -->
-  <div id="emojiPanel" class="emoji-panel">
-    <span>😀</span>
-    <span>😂</span>
-    <span>😍</span>
-    <span>😎</span>
-    <span>😃</span>
-    <span>😊</span>
-    <span>🤔</span>
-    <span>🥺</span>
-    <span>😡</span>
-  </div>
+      addBotMessage("سلام 👋 خوش اومدی! چطور می‌تونم کمکت کنم؟");
 
-  <!-- نوار ورودی -->
-  <div class="input-bar">
-    <input id="userInput" type="text" placeholder="اینجا بنویس..." />
-    <button id="emojiBtn" style="width: 40px; height: 40px; padding: 0;">😊</button>
-    <button id="sendBtn">ارسال</button>
-  </div>
+      clearBtn.addEventListener("click", () => {
+        chatMessages.innerHTML = "";
+        addBotMessage("چت پاک شد. هر سوالی داری دوباره بپرس 🌿");
+      });
 
-  <script>
-    const chatEl = document.getElementById("chat");
-    const inputEl = document.getElementById("userInput");
-    const sendBtn = document.getElementById("sendBtn");
-    const emojiBtn = document.getElementById("emojiBtn");
-    const emojiPanel = document.getElementById("emojiPanel");
+      chatForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const text = userInput.value.trim();
+        if (!text) return;
 
-    function scrollBottom() {
-      chatEl.scrollTop = chatEl.scrollHeight;
-    }
+        addUserMessage(text);
+        userInput.value = "";
 
-    function addMsg(text, type = "bot") {
-      const div = document.createElement("div");
-      div.className = "msg " + type;
-      div.textContent = text;
-      chatEl.appendChild(div);
-      scrollBottom();
-    }
+        const typingId = showTyping();
 
-    async function sendMessage() {
-      const text = inputEl.value.trim();
-      if (!text) return;
+        sendBtn.disabled = true;
 
-      // پیام کاربر
-      addMsg(text, "user");
-      inputEl.value = "";
-      inputEl.focus();
+        try {
+          const res = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: text }),
+          });
 
-      // پیام «در حال فکر کردن...»
-      const loadingMsg = document.createElement("div");
-      loadingMsg.className = "msg bot loading";
-      loadingMsg.textContent = "در حال فکر کردن...";
-      chatEl.appendChild(loadingMsg);
-      scrollBottom();
+          const data = await res.json().catch(() => ({}));
 
-      try {
-        // اینجا می‌زنیم به سرور خودمون (ورسل)، نه مستقیم به OpenAI
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ text }), // 👈 با chat.js هماهنگ است
-        });
+          hideTyping(typingId);
 
-        const data = await res.json();
-        loadingMsg.remove();
+          if (!res.ok) {
+            addBotMessage("❌ خطا در اتصال به سرور. لطفاً دوباره امتحان کن.");
+            return;
+          }
 
-        if (!res.ok || data.ok === false) {
-          addMsg("❌ خطا: " + (data.error || "مشکل در ارتباط با سرور"), "bot");
-          return;
+          addBotMessage(data.reply || data.message || "پاسخی دریافت نشد.");
+        } catch (e) {
+          hideTyping(typingId);
+          addBotMessage("❌ مشکل غیرمنتظره. اینترنت یا VPN را بررسی کن.");
         }
 
-        addMsg(data.answer || "جوابی برنگشت.", "bot");
-      } catch (e) {
-        loadingMsg.remove();
-        addMsg("❌ مشکل در ارتباط با سرور", "bot");
+        sendBtn.disabled = false;
+      });
+
+      function addUserMessage(text) {
+        const row = document.createElement("div");
+        row.className = "message-row user";
+
+        const bubble = document.createElement("div");
+        bubble.className = "message-bubble user";
+        bubble.textContent = text;
+
+        row.appendChild(bubble);
+        chatMessages.appendChild(row);
+        scrollToEnd();
       }
-    }
 
-    sendBtn.onclick = sendMessage;
-    inputEl.addEventListener("keyup", (e) => {
-      if (e.key === "Enter") sendMessage();
-    });
+      function addBotMessage(text) {
+        const row = document.createElement("div");
+        row.className = "message-row bot";
 
-    // ایموجی
-    emojiBtn.onclick = () => {
-      emojiPanel.style.display = emojiPanel.style.display === "flex" ? "none" : "flex";
-    };
+        const bubble = document.createElement("div");
+        bubble.className = "message-bubble bot";
 
-    emojiPanel.onclick = (e) => {
-      if (e.target.tagName === "SPAN") {
-        inputEl.value += e.target.textContent;
+        const content = document.createElement("div");
+        content.textContent = text;
+
+        const meta = document.createElement("div");
+        meta.className = "message-meta";
+        meta.textContent = "chatgpt";
+
+        bubble.appendChild(content);
+        bubble.appendChild(meta);
+        row.appendChild(bubble);
+        chatMessages.appendChild(row);
+
+        scrollToEnd();
       }
-      emojiPanel.style.display = "none";
-    };
 
-    // پاک کردن چت
-    document.querySelector(".clear-chat").onclick = () => {
-      chatEl.innerHTML = "";
-      addMsg("سلام 👋 من چت‌بات هوشمند هستم. بپرس 😊", "bot");
-    };
-  </script>
+      function showTyping() {
+        const id = "typing-" + Date.now();
+        const row = document.createElement("div");
+        row.className = "message-row bot";
+        row.id = id;
 
-</body>
+        const bubble = document.createElement("div");
+        bubble.className = "message-bubble bot typing";
+
+        for (let i = 0; i < 3; i++) {
+          const dot = document.createElement("span");
+          dot.className = "typing-dot";
+          bubble.appendChild(dot);
+        }
+
+        row.appendChild(bubble);
+        chatMessages.appendChild(row);
+        scrollToEnd();
+        return id;
+      }
+
+      function hideTyping(id) {
+        const item = document.getElementById(id);
+        if (item) item.remove();
+      }
+
+      function scrollToEnd() {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+    </script>
+  </body>
 </html>
