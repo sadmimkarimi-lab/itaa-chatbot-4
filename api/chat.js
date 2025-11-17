@@ -36,31 +36,25 @@ async function askGroq(userText) {
     return "کلید اتصال به هوش مصنوعی تنظیم نشده است.";
   }
 
-  const res = await fetch(
-    "https://api.groq.com/openai/v1/chat/completions",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "llama-3.1-8b-instant",
-        messages: [
-          {
-            role: "system",
-            content:
-              "تو یک دستیار فارسی‌زبان مهربان و دقیق هستی. جواب‌ها را ساده، واضح و بدون حاشیه‌های اضافی بده.",
-          },
-          {
-            role: "user",
-            content: userText,
-          },
-        ],
-        temperature: 0.6,
-      }),
-    }
-  );
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "llama-3.1-8b-instant",
+      messages: [
+        {
+          role: "system",
+          content:
+            "تو یک دستیار فارسی‌زبان مهربان و دقیق هستی. جواب‌ها را ساده، واضح و بدون حاشیه‌های اضافی بده.",
+        },
+        { role: "user", content: userText },
+      ],
+      temperature: 0.6,
+    }),
+  });
 
   if (!res.ok) {
     console.error("Groq error:", res.status, await res.text());
@@ -70,13 +64,12 @@ async function askGroq(userText) {
   const data = await res.json();
   const answer =
     data?.choices?.[0]?.message?.content?.trim() ||
-    "نتوانستم پاسخ مناسبی پیدا کنم. لطفاً سؤال را کمی واضح‌تر بپرس 😊";
+    "نتوانستم پاسخ مناسبی پیدا کنم. لطفاً سؤال را واضح‌تر بپرس 😊";
 
   return answer;
 }
 
 export default async function handler(req, res) {
-  // فقط درخواست POST از ایتا
   if (req.method !== "POST") {
     return res.status(200).send("OK");
   }
@@ -91,10 +84,10 @@ export default async function handler(req, res) {
 
     if (!text || !chatId || !userId) {
       console.log("Invalid Eitaa payload");
-      return res.status(200).json({ ok: true });
+      return res.json({ ok: true });
     }
 
-    // --- ۱) خوش‌آمدگویی برای اولین بار ---
+    // ---- خوش‌آمد ---
     const seenKey = `seen:${userId}`;
     const alreadySeen = await redis.get(seenKey);
 
@@ -104,18 +97,16 @@ export default async function handler(req, res) {
       const welcome =
         "سلام دوست خوبم 🌿\n" +
         "من ربات هوشمند تاویتا هستم 🤖💚\n" +
-        "هر سؤالی درباره زندگی، کار، درس، ایده و… داشتی، می‌تونی ازم بپرسی.\n\n" +
-        "فقط یک نکته مهم:\n" +
-        "در هر **۶ ساعت** می‌تونی حداکثر **۱۰ پیام** ارسال کنی.\n" +
-        "پس سؤالاتت رو واضح و کامل بپرس تا بهترین جواب رو بدم ✨";
+        "هر سؤالی داشتی ازم بپرس.\n\n" +
+        "⚠️ در هر *۶ ساعت* فقط *۱۰ پیام* می‌تونی بفرستی.\n";
 
       await sendMessage(chatId, welcome, replyToId);
-      return res.status(200).json({ ok: true });
+      return res.json({ ok: true });
     }
 
-    // --- ۲) محدودیت ۱۰ پیام در هر ۶ ساعت ---
-    const sixHours = 6 * 60 * 60; // ثانیه
-    const windowId = Math.floor(Date.now() / (sixHours * 1000)); // شناسه بازه ۶ ساعته
+    // ---- محدودیت پیام --- 
+    const sixHours = 6 * 3600;
+    const windowId = Math.floor(Date.now() / (sixHours * 1000));
     const limitKey = `limit:${userId}:${windowId}`;
 
     let count = await redis.get(limitKey);
@@ -129,23 +120,20 @@ export default async function handler(req, res) {
     }
 
     if (count > 10) {
-      const limitMsg =
-        "مهربون من 🌿\n" +
-        "در هر بازه‌ی **۶ ساعته** می‌تونی حداکثر **۱۰ پیام** بفرستی ⏳\n" +
-        "الان سهم این بازه‌ات تموم شده.\n" +
-        "چند ساعت دیگه دوباره برگرد، با کمال میل ادامه می‌دیم 💚";
-
-      await sendMessage(chatId, limitMsg, replyToId);
-      return res.status(200).json({ ok: true });
+      await sendMessage(
+        chatId,
+        "مهربونم 🌿\nسهم پیام‌هات در این ۶ ساعت تموم شده.\nچند ساعت دیگه بیا، ادامه می‌دیم 💚",
+        replyToId
+      );
+      return res.json({ ok: true });
     }
 
-    // --- ۳) گرفتن جواب از Groq ---
+    // ---- پاسخ از Groq ----
     const answer = await askGroq(text);
 
-    // --- ۴) ارسال جواب به ایتا ---
     await sendMessage(chatId, answer, replyToId);
 
-    return res.status(200).json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     console.error("Internal error:", err);
     return res.status(500).json({ ok: false });
