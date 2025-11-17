@@ -1,97 +1,73 @@
-// api/chat.js
-
-function cleanAnswer(text) {
-  if (!text || typeof text !== "string")
-    return "نتونستم درست متوجه بشم عزیزم، دوباره بپرس.";
-
-  let t = text.trim().replace(/\r\n/g, "\n");
-  t = t.replace(/\n{3,}/g, "\n\n");
-
-  return t;
-}
-
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ ok: false, error: "فقط POST مجازه." });
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { text } = req.body || {};
-  if (!text) {
-    return res.status(400).json({ ok: false, error: "متن پیام خالیه عزیزم." });
+  const { message } = req.body;
+
+  if (!message) {
+    return res.status(400).json({ error: "Message is required" });
   }
 
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ ok: false, error: "کلید GROQ تنظیم نشده." });
-  }
+  const API_KEY = process.env.GROQ_API_KEY;
 
-  // مدل‌های فعّال و جدید Groq
-  const models = [
-    "llama3.1-70b-versatile",
-    "mixtral-8x22b",
-    "llama3.1-8b-instant"
+  // مدل‌های fallback — از بهترین به بدترین
+  const MODELS = [
+    "llama-3.1-70b-versatile",  // بهترین کیفیت
+    "gemma2-9b-it",             // سریع + خوب
+    "llama-3.1-8b-instant"      // اضطراری
   ];
 
-  async function ask(modelName) {
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: modelName,
-        messages: [
-          {
-            role: "system",
-            content: `
-تو یک دستیار فارسی‌زبان هستی با لحن محترمانه، گرم و روان.
-ساده، دقیق، قابل فهم و صمیمی جواب بده.
-از پیچوندن جواب یا خشک حرف‌زدن پرهیز کن.
-جواب‌ها رو کوتاه و تمیز تحویل بده.
-اگر سؤال خیلی مبهم بود، فقط یک سؤال کوتاه بپرس.
-            `.trim(),
-          },
-          { role: "user", content: text }
-        ],
-        temperature: 0.55,
-        max_tokens: 800,
-      }),
-    });
+  // دستیار زیبا و خوش‌اخلاق 😍
+  const SYSTEM_PROMPT = `
+تو یک دستیار هوشمند فارسی‌زبان هستی.
+با لحن صمیمی، دقیق و قابل فهم جواب بده.
+اگر کاربر سوال مهم داشت، پاسخ کامل بده.
+اگر سوال کوتاه بود، جواب کوتاه و تمیز بده.
+از کلمات خشک، رسمی یا بی‌روح استفاده نکن.
+جوری بنویس که کاربر کیف کنه ❤️
+  `;
 
-    const data = await response.json();
+  // تابعی که مدل‌ها را یکی‌یکی تست می‌کند
+  async function askGroq(modelName) {
+    try {
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: modelName,
+          temperature: 0.55,
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: message }
+          ],
+        }),
+      });
 
-    if (!response.ok) {
-      console.log("❌ Groq error:", modelName, data);
-      throw new Error(data?.error?.message || "خطای مدل");
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.error?.message);
+
+      return data.choices[0].message.content;
+    } catch (error) {
+      console.log("❌ مدل از کار افتاد:", modelName, error.message);
+      return null;
     }
-
-    return cleanAnswer(data?.choices?.[0]?.message?.content);
   }
 
-  try {
-    let answer = null;
-
-    for (const m of models) {
-      try {
-        console.log("🔄 تست مدل:", m);
-        answer = await ask(m);
-        console.log("✅ موفق:", m);
-        break;
-      } catch (e) {
-        continue;
-      }
+  // اجرای fallback
+  for (const model of MODELS) {
+    const reply = await askGroq(model);
+    if (reply) {
+      return res.status(200).json({ reply });
     }
-
-    if (!answer) {
-      return res.status(500).json({ ok: false, error: "همه مدل‌ها خطا دادن." });
-    }
-
-    return res.status(200).json({ ok: true, answer });
-  } catch (err) {
-    return res.status(500).json({
-      ok: false,
-      error: "خطای داخلی سرور. لطفاً دوباره امتحان کن.",
-    });
   }
+
+  // اگر همه مدل‌ها خراب شدند
+  return res.status(500).json({
+    reply: "الان سرورهای هوش مصنوعی شلوغه، چند لحظه دیگه دوباره امتحان کن عزیزم ❤️"
+  });
 }
