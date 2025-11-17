@@ -7,14 +7,12 @@ export default async function handler(req, res) {
 
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
-    console.error("❌ GROQ_API_KEY در سرور ست نشده");
     return res.status(500).json({
       ok: false,
-      error: "کلید Groq روی سرور تنظیم نشده است.",
+      error: "GROQ_API_KEY تنظیم نشده.",
     });
   }
 
-  // پیام کاربر (استانداردسازی)
   const userMessage =
     req.body?.text ||
     req.body?.message ||
@@ -28,49 +26,66 @@ export default async function handler(req, res) {
     });
   }
 
+  // ❤️ مدل‌ها به ترتیب تست
+  const models = [
+    "llama3-8b",
+    "mixtral-8x7b-instruct",
+    "qwen2-72b"
+  ];
+
   try {
-    // ——————— ارسال به GROQ ———————
-    const groqRes = await fetch(
-      "https://api.groq.com/openai/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "llama3-8b-chat",   // ❤️ مدل معتبر و رایگان
-          messages: [
-            {
-              role: "system",
-              content:
-                "تو یک دستیار فارسی‌زبان هستی. واضح، محترمانه و دقیق پاسخ بده.",
+    for (const model of models) {
+      try {
+        console.log("🔄 تست مدل:", model);
+
+        const groqRes = await fetch(
+          "https://api.groq.com/openai/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
             },
-            { role: "user", content: userMessage },
-          ],
-          temperature: 0.5,
-        }),
+            body: JSON.stringify({
+              model,
+              messages: [
+                {
+                  role: "system",
+                  content: "تو یک دستیار فارسی‌زبان حرفه‌ای هستی.",
+                },
+                { role: "user", content: userMessage },
+              ],
+              temperature: 0.5,
+            }),
+          }
+        );
+
+        const data = await groqRes.json();
+
+        if (!groqRes.ok) {
+          console.error(`❌ مدل ${model} خطا داد:`, data);
+          continue; // ❤️ برو مدل بعدی
+        }
+
+        // اگر اینجا رسید یعنی جواب گرفته
+        const answer = data?.choices?.[0]?.message?.content;
+        if (answer) {
+          return res.status(200).json({ ok: true, answer });
+        }
+      } catch (modelErr) {
+        console.error(`❌ خطا در مدل ${model}:`, modelErr);
+        continue; // مدل بعدی تست میشه
       }
-    );
-
-    const data = await groqRes.json();
-
-    // ———— اگر Groq خطا داد ————
-    if (!groqRes.ok) {
-      console.error("Groq error:", data);
-      return res.status(500).json({
-        ok: false,
-        error: data?.error?.message || "خطا در اتصال به Groq.",
-      });
     }
 
-    const answer =
-      data?.choices?.[0]?.message?.content ||
-      "متاسفانه پاسخی پیدا نکردم.";
+    // اگر هیچ مدلی جواب نداد:
+    return res.status(500).json({
+      ok: false,
+      error: "هیچ‌کدام از مدل‌ها پاسخ ندادند.",
+    });
 
-    return res.status(200).json({ ok: true, answer });
   } catch (err) {
-    console.error("Internal error:", err);
+    console.error("🔥 خطای مهم:", err);
     return res.status(500).json({
       ok: false,
       error: "خطای داخلی سرور.",
