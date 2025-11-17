@@ -6,86 +6,58 @@ const redis = new Redis({
   token: process.env.UPSTASH_REDIS_REST_TOKEN,
 });
 
-// کلید و مدل‌های Groq
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
-
-const GROQ_MODELS = [
-  "llama-3.1-70b-versatile",
-  "llama-3.1-8b-instant"
-];
-
-// System prompt برای لحن ربات
-const SYSTEM_PROMPT = `
-تو یک دستیار هوشمند فارسی‌زبان هستی.
-- با لحن صمیمی، محترمانه و قابل فهم جواب بده.
-- جواب‌ها را کوتاه، دقیق و کاربردی بده.
-- اگر سؤال مبهم بود، از کاربر بخواه واضح‌تر توضیح بده.
-- از پاسخ‌های خشک و رسمی خودداری کن.
-`;
-
-// تابع پرسیدن سؤال از Groq با fallback
-async function askGroq(userMessage) {
-  const url = "https://api.groq.com/openai/v1/chat/completions";
-
-  const messages = [
-    { role: "system", content: SYSTEM_PROMPT },
-    { role: "user", content: userMessage },
-  ];
-
-  let lastError = null;
-
-  for (const model of GROQ_MODELS) {
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${GROQ_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model,
-          messages,
-          temperature: 0.4,
-          max_tokens: 700,
-        }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        lastError = new Error(data?.error?.message || "Groq error");
-        continue;
-      }
-
-      const answer = data?.choices?.[0]?.message?.content;
-      if (answer) return answer.trim();
-    } catch (err) {
-      lastError = err;
-    }
-  }
-
-  throw lastError || new Error("Groq unavailable");
-}
+// تنظیمات Groq
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_MODEL = "llama-3.1-8b-instant"; // مدلی که الان جواب می‌دهد
 
 // ارسال پیام به ایتا
-async function sendMessage(chatId, text, replyTo = null) {
+async function sendMessage(chat_id, text) {
   const url = `https://eitaayar.ir/bot${process.env.EITAA_BOT_TOKEN}/sendMessage`;
 
-  const payload = {
-    chat_id: chatId,
-    text,
-  };
-
-  if (replyTo) payload.reply_to_message_id = replyTo;
-
-  return fetch(url, {
+  await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      chat_id,
+      text,
+    }),
   });
 }
 
-// هندل وبهوک ایتا
+// پرسیدن سؤال از Groq
+async function askGroq(userMessage) {
+  const response = await fetch(GROQ_API_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: GROQ_MODEL,
+      messages: [
+        {
+          role: "system",
+          content:
+            "تو یک دستیار فارسی‌زبان مهربان و کاربردی هستی. کوتاه، دقیق و شفاف جواب می‌دهی و از توضیحات الکی و حاشیه دوری می‌کنی.",
+        },
+        {
+          role: "user",
+          content: userMessage,
+        },
+      ],
+      temperature: 0.6,
+    }),
+  });
+
+  const data = await response.json();
+
+  const answer =
+    data?.choices?.[0]?.message?.content?.trim() ||
+    "متأسفم، الان نتونستم پاسخی پیدا کنم. لطفاً بعداً دوباره امتحان کن 🌱";
+
+  return answer;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(200).send("OK");
@@ -93,60 +65,75 @@ export default async function handler(req, res) {
 
   try {
     const body = req.body;
-    const message = body?.message;
-    const text = message?.text;
-    const chatId = message?.chat?.id;
-    const userId = message?.from?.id;
-    const replyToId = message?.message_id;
 
-    if (!text || !chatId || !userId) {
+    const message = body?.message?.text || "";
+    const chat_id = body?.message?.chat?.id;
+    const user_id = body?.message?.from?.id;
+
+    if (!message || !chat_id || !user_id) {
+      return res.status(200).send("OK");
+    }
+
+    // پیام خوش‌آمد
+    if (message === "/start") {
+      const welcomeText =
+        "سلام 👋 خوش اومدی!\n\n" +
+        "من دستیار هوشمند chatgpt هستم 😊\n" +
+        "برای اینکه سرویس برای همه پایدار بمونه، هر کاربر در هر ۶ ساعت می‌تونه **۱۰ پیام** ارسال کنه.\n\n" +
+        "سؤالت رو واضح بنویس تا بهترین جواب رو بدم ✨";
+
+      await sendMessage(chat_id, welcomeText);
       return res.status(200).json({ ok: true });
     }
 
-    // اگر /start بود
-    if (text === "/start") {
-      await sendMessage(
-        chatId,
-        "سلام دوست خوبم 🌿\nمن ربات هوشمند تاویتا هستم 🤖💚\nبرای اینکه سیستم همیشه سریع و دقیق بمونه، هر کاربر روزانه **۱۰ پیام** فرصت داره.\n\nسوالت رو واضح بپرس تا بهترین جواب رو بدم ✨",
-        replyToId
-      );
-
-      return res.status(200).json({ ok: true });
-    }
-
-    // محدودیت پیام (۱۰ پیام در روز)
-    const today = new Date().toISOString().slice(0, 10);
-    const key = `limit:${userId}:${today}`;
+    // ⏳ محدودیت ۱۰ پیام در هر ۶ ساعت
+    const today = new Date().toISOString().slice(0, 10); // فقط برای نظم کلید
+    const key = `limit:${user_id}:${today}`;
 
     let count = await redis.get(key);
 
-    if (!count) {
-      await redis.set(key, 1, { ex: 60 * 60 * 24 });
-      count = 1;
+    if (count === null || typeof count === "undefined") {
+      count = 0;
     } else {
-      count = Number(count) + 1;
-      await redis.set(key, count, { ex: 60 * 60 * 24 });
+      count = Number(count) || 0;
     }
 
-    if (count > 10) {
-      await sendMessage(
-        chatId,
-        "🌱 دوست خوبم،\nسهمیه امروزت برای استفاده از ربات تکمیل شد (۱۰ پیام).\nلطفاً فردا دوباره برگرد 🌟💚",
-        replyToId
-      );
-
+    // اگر قبلاً سقف پر شده
+    if (count >= 10) {
+      const limitText =
+        "دوست خوبم 🌱\n\n" +
+        "در این بازه‌ی حدوداً ۶ ساعته به سقف ۱۰ پیام رسیدی.\n" +
+        "برای اینکه ربات برای همه پایدار و رایگان بمونه، لطفاً چند ساعت بعد دوباره برگرد 💚";
+      await sendMessage(chat_id, limitText);
       return res.status(200).json({ ok: true });
     }
 
-    // ارسال پیام به Groq
-    const answer = await askGroq(text);
+    // افزایش شمارش و تنظیم انقضا ۶ ساعته (۶ * ۶۰ * ۶۰ ثانیه)
+    count += 1;
+    await redis.set(key, count, { ex: 60 * 60 * 6 });
 
-    // ارسال پاسخ به ایتا
-    await sendMessage(chatId, answer, replyToId);
+    // گرفتن جواب از Groq
+    const answer = await askGroq(message);
+
+    // ارسال جواب به کاربر
+    await sendMessage(chat_id, answer);
 
     return res.status(200).json({ ok: true });
-  } catch (err) {
-    console.error("Internal error:", err);
-    return res.status(500).json({ ok: false });
+  } catch (error) {
+    console.error("Eitaa webhook error:", error);
+
+    try {
+      const chat_id = req.body?.message?.chat?.id;
+      if (chat_id) {
+        await sendMessage(
+          chat_id,
+          "متأسفم، یک خطای موقتی رخ داد. لطفاً چند دقیقه‌ی دیگه دوباره امتحان کن 🙏"
+        );
+      }
+    } catch (e) {
+      console.error("Error while sending fallback message:", e);
+    }
+
+    return res.status(200).json({ ok: false });
   }
 }
