@@ -5,28 +5,29 @@ function cleanAnswer(text) {
   if (!text || typeof text !== "string") return "نتوانستم پاسخی تولید کنم.";
 
   let t = text.trim();
-  t = t.replace(/\r\n/g, "\n");      // نرمال‌سازی
-  t = t.replace(/\n{3,}/g, "\n\n");  // محدودیت فاصله‌های خالی
+  t = t.replace(/\r\n/g, "\n");
+  t = t.replace(/\n{3,}/g, "\n\n");
 
   const lines = t.split("\n").map((line) => line.replace(/\s+$/g, ""));
   return lines.join("\n");
 }
 
 export default async function handler(req, res) {
-  // فقط POST
   if (req.method !== "POST") {
     return res.status(200).send("OK");
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  // ———— کلید دیپ‌سیک ————
+  const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) {
-    console.error("OPENAI_API_KEY تعریف نشده");
-    return res
-      .status(500)
-      .json({ ok: false, error: "کلید OpenAI روی سرور تنظیم نشده است." });
+    console.error("DEEPSEEK_API_KEY تعریف نشده");
+    return res.status(500).json({
+      ok: false,
+      error: "کلید DeepSeek روی سرور تنظیم نشده است.",
+    });
   }
 
-  // پیام ورودی
+  // پیام کاربر
   const userMessage =
     req.body?.text ||
     req.body?.message ||
@@ -40,48 +41,42 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ——————— ارسال به OpenAI ———————
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: `
-تو یک دستیار فارسی‌زبان حرفه‌ای هستی.
-
-قوانین:
-- هر سؤال را مستقل جواب بده (هیچ حافظه‌ای وجود ندارد).
-- فقط بر اساس همین پیام جواب بده.
-- ساده، واضح و تمیز بنویس.
-- اگر لازم بود بولت‌پوینت استفاده کن.
-- از توضیح اضافه و تکرار بی‌خودی جلوگیری کن.
-- اگر سؤال چند بخش داشت، مرحله‌ای پاسخ بده.
-- لحن دوستانه و محترمانه باشد.
+    // ——————— ارسال پیام به DeepSeek ———————
+    const response = await fetch(
+      "https://api.deepseek.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "deepseek-chat",
+          messages: [
+            {
+              role: "system",
+              content: `
+تو یک دستیار حرفه‌ای فارسی‌زبان هستی.
+هر سؤال را مستقل جواب بده.
+پاسخ‌ها واضح، ساده، دقیق و دوستانه باشند.
+اگر سؤال چندبخشی بود مرحله‌ای پاسخ بده.
 `.trim(),
-          },
-          {
-            role: "user",
-            content: userMessage,
-          },
-        ],
-        temperature: 0.5,
-        max_tokens: 400,
-      }),
-    });
+            },
+            { role: "user", content: userMessage },
+          ],
+          temperature: 0.5,
+          max_tokens: 500,
+        }),
+      }
+    );
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("OpenAI error:", data);
+      console.error("DeepSeek error:", data);
       const msg =
         data?.error?.message ||
-        "پاسخی از OpenAI دریافت نشد، لطفاً دوباره تلاش کنید.";
+        "پاسخی از DeepSeek دریافت نشد، لطفاً دوباره تلاش کنید.";
       return res.status(500).json({ ok: false, error: msg });
     }
 
