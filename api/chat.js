@@ -17,13 +17,13 @@ export default async function handler(req, res) {
     return res.status(200).send("OK");
   }
 
-  // ———— کلید دیپ‌سیک ————
-  const apiKey = process.env.DEEPSEEK_API_KEY;
+  // ———— کلید GROQ ————
+  const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
-    console.error("DEEPSEEK_API_KEY تعریف نشده");
+    console.error("GROQ_API_KEY تعریف نشده");
     return res.status(500).json({
       ok: false,
-      error: "کلید DeepSeek روی سرور تنظیم نشده است.",
+      error: "کلید Groq روی سرور تنظیم نشده است.",
     });
   }
 
@@ -41,9 +41,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ——————— ارسال پیام به DeepSeek ———————
+    // ——————— ارسال پیام به Groq ———————
     const response = await fetch(
-      "https://api.deepseek.com/v1/chat/completions",
+      "https://api.groq.com/openai/v1/chat/completions",
       {
         method: "POST",
         headers: {
@@ -51,7 +51,7 @@ export default async function handler(req, res) {
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: "deepseek-chat",
+          model: "llama3-8b-8192",
           messages: [
             {
               role: "system",
@@ -73,10 +73,10 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("DeepSeek error:", data);
+      console.error("Groq error:", data);
       const msg =
         data?.error?.message ||
-        "پاسخی از DeepSeek دریافت نشد، لطفاً دوباره تلاش کنید.";
+        "پاسخی از Groq دریافت نشد، لطفاً دوباره تلاش کنید.";
       return res.status(500).json({ ok: false, error: msg });
     }
 
