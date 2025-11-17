@@ -1,12 +1,15 @@
 // api/eitaa.js
+import { Redis } from "@upstash/redis";
 
-// ✅ تنظیمات محدودیت
-const WINDOW_MS = 6 * 60 * 60 * 1000; // ۶ ساعت
-const MAX_MESSAGES = 10; // حداکثر ۱۰ پیام در هر بازه
+// اتصال به Redis (Upstash)
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
 
-// ✅ ذخیره وضعیت کاربران در حافظه سرور
-const usageStore =
-  globalThis.__eitaaUsageStore || (globalThis.__eitaaUsageStore = new Map());
+// تنظیمات محدودیت
+const WINDOW_SECONDS = 6 * 60 * 60; // ۶ ساعت
+const MAX_MESSAGES = 10; // حداکثر ۱۰ پیام در هر پنجره
 
 // مدل‌های Groq به ترتیب اولویت
 const GROQ_MODELS = [
@@ -37,47 +40,50 @@ async function sendMessage(chat_id, text, replyToId) {
   }
 }
 
-// 💚 تبدیل میلی‌ثانیه به متن خوانا
-function formatRemaining(ms) {
-  if (ms <= 0) return "کمتر از یک دقیقه";
+// تبدیل ثانیه به متن خوانا
+function formatRemaining(seconds) {
+  if (!seconds || seconds <= 0) return "کمتر از یک دقیقه";
 
-  const totalMinutes = Math.ceil(ms / (60 * 1000));
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
+  const minsTotal = Math.ceil(seconds / 60);
+  const hours = Math.floor(minsTotal / 60);
+  const mins = minsTotal % 60;
 
-  if (hours === 0) return `${minutes} دقیقه`;
-  if (minutes === 0) return `${hours} ساعت`;
-  return `${hours} ساعت و ${minutes} دقیقه`;
+  if (hours === 0) return `${mins} دقیقه`;
+  if (mins === 0) return `${hours} ساعت`;
+  return `${hours} ساعت و ${mins} دقیقه`;
 }
 
-// ⏳ چک‌کردن و به‌روزرسانی محدودیت
-function checkAndUpdateLimit(userId) {
-  const now = Date.now();
-  let usage = usageStore.get(userId);
-
-  if (!usage) {
-    usage = { windowStart: now, count: 0 };
+// ⏳ چک محدودیت با Redis (اتمی و مطمئن)
+async function checkRateLimit(userId) {
+  if (!redis) {
+    console.warn("Redis تنظیم نشده است؛ محدودیت غیرفعال است.");
+    return { allowed: true, remainingSeconds: null, count: null };
   }
 
-  const elapsed = now - usage.windowStart;
+  const key = `limit:${userId}`;
 
-  // اگر ۶ ساعت گذشته، پنجره جدید
-  if (elapsed > WINDOW_MS) {
-    usage = { windowStart: now, count: 0 };
+  // افزایش شمارنده
+  const count = await redis.incr(key);
+
+  if (count === 1) {
+    // اولین پیام در این پنجره → زمان انقضا تنظیم می‌کنیم
+    await redis.expire(key, WINDOW_SECONDS);
   }
 
-  if (usage.count >= MAX_MESSAGES) {
-    const remainingMs = WINDOW_MS - (now - usage.windowStart);
+  if (count > MAX_MESSAGES) {
+    const ttl = await redis.ttl(key); // زمان باقی‌مانده پنجره فعلی
     return {
       allowed: false,
-      remainingMs: remainingMs > 0 ? remainingMs : 0,
+      remainingSeconds: ttl > 0 ? ttl : 0,
+      count,
     };
   }
 
-  usage.count += 1;
-  usageStore.set(userId, usage);
-
-  return { allowed: true, remainingMs: 0, count: usage.count };
+  return {
+    allowed: true,
+    remainingSeconds: null,
+    count,
+  };
 }
 
 // 🧠 صدا زدن Groq با یک مدل
@@ -148,7 +154,7 @@ export default async function handler(req, res) {
 
     if (!text || !chatId) return res.status(200).json({ ok: true });
 
-    // ✅ /start
+    // /start
     if (text === "/start") {
       await sendMessage(
         chatId,
@@ -161,11 +167,11 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    // ✅ اول محدودیت را چک کنیم
-    const limit = checkAndUpdateLimit(userId);
+    // ✅ اول محدودیت را چک می‌کنیم
+    const limit = await checkRateLimit(userId);
 
     if (!limit.allowed) {
-      const remainingText = formatRemaining(limit.remainingMs);
+      const remainingText = formatRemaining(limit.remainingSeconds);
 
       await sendMessage(
         chatId,
