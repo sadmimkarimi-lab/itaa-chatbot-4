@@ -1,10 +1,12 @@
 // api/eitaa.js
-import { Redis } from "@upstash/redis";
 
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN,
-});
+// ✅ تنظیمات محدودیت
+const WINDOW_MS = 6 * 60 * 60 * 1000; // ۶ ساعت
+const MAX_MESSAGES = 10; // حداکثر ۱۰ پیام در هر بازه
+
+// ✅ ذخیره وضعیت کاربران در حافظه سرور
+const usageStore =
+  globalThis.__eitaaUsageStore || (globalThis.__eitaaUsageStore = new Map());
 
 // مدل‌های Groq به ترتیب اولویت
 const GROQ_MODELS = [
@@ -16,7 +18,7 @@ const GROQ_MODELS = [
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
-// ارسال پیام به ایتا
+// 📨 ارسال پیام به ایتا
 async function sendMessage(chat_id, text, replyToId) {
   const url = `https://eitaayar.ir/bot${process.env.EITAA_BOT_TOKEN}/sendMessage`;
 
@@ -35,7 +37,50 @@ async function sendMessage(chat_id, text, replyToId) {
   }
 }
 
-// تست یک مدل Groq
+// 💚 تبدیل میلی‌ثانیه به متن خوانا
+function formatRemaining(ms) {
+  if (ms <= 0) return "کمتر از یک دقیقه";
+
+  const totalMinutes = Math.ceil(ms / (60 * 1000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours === 0) return `${minutes} دقیقه`;
+  if (minutes === 0) return `${hours} ساعت`;
+  return `${hours} ساعت و ${minutes} دقیقه`;
+}
+
+// ⏳ چک‌کردن و به‌روزرسانی محدودیت
+function checkAndUpdateLimit(userId) {
+  const now = Date.now();
+  let usage = usageStore.get(userId);
+
+  if (!usage) {
+    usage = { windowStart: now, count: 0 };
+  }
+
+  const elapsed = now - usage.windowStart;
+
+  // اگر ۶ ساعت گذشته، پنجره جدید
+  if (elapsed > WINDOW_MS) {
+    usage = { windowStart: now, count: 0 };
+  }
+
+  if (usage.count >= MAX_MESSAGES) {
+    const remainingMs = WINDOW_MS - (now - usage.windowStart);
+    return {
+      allowed: false,
+      remainingMs: remainingMs > 0 ? remainingMs : 0,
+    };
+  }
+
+  usage.count += 1;
+  usageStore.set(userId, usage);
+
+  return { allowed: true, remainingMs: 0, count: usage.count };
+}
+
+// 🧠 صدا زدن Groq با یک مدل
 async function callGroqOnce(model, userMessage) {
   if (!GROQ_API_KEY) throw new Error("GROQ_API_KEY تنظیم نشده است");
 
@@ -51,7 +96,7 @@ async function callGroqOnce(model, userMessage) {
         {
           role: "system",
           content:
-            "تو یک دستیار فارسی‌زبان مهربان و دقیق هستی. جواب‌ها را واضح، مفید، کاربردی و بدون حاشیه‌های اضافی بده.",
+            "تو یک دستیار فارسی‌زبان مهربان و کاربردی هستی. جواب‌ها را واضح، مفید، عملی و بدون حاشیه‌های اضافی بده.",
         },
         { role: "user", content: userMessage },
       ],
@@ -73,7 +118,7 @@ async function callGroqOnce(model, userMessage) {
   );
 }
 
-// fallback بین مدل‌ها
+// 🔁 fallback بین مدل‌های مختلف Groq
 async function askGroq(userMessage) {
   for (const model of GROQ_MODELS) {
     try {
@@ -87,27 +132,6 @@ async function askGroq(userMessage) {
     "در حال حاضر دسترسی به مدل‌های هوش مصنوعی ممکن نیست 😔\n" +
     "لطفاً چند دقیقه‌ی دیگر تلاش کن."
   );
-}
-
-// محدودیت ۱۰ پیام / ۶ ساعت
-async function checkRateLimit(userId) {
-  const sixHours = 6 * 60 * 60;
-  const windowId = Math.floor(Date.now() / (sixHours * 1000));
-
-  const key = `limit:${userId}:${windowId}`;
-  let count = await redis.get(key);
-
-  if (!count) {
-    await redis.set(key, 1, { ex: sixHours });
-    return { allowed: true };
-  }
-
-  count = Number(count);
-
-  if (count >= 10) return { allowed: false };
-
-  await redis.set(key, count + 1, { ex: sixHours });
-  return { allowed: true };
 }
 
 export default async function handler(req, res) {
@@ -124,7 +148,7 @@ export default async function handler(req, res) {
 
     if (!text || !chatId) return res.status(200).json({ ok: true });
 
-    // /start
+    // ✅ /start
     if (text === "/start") {
       await sendMessage(
         chatId,
@@ -137,26 +161,45 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    // محدودیت
-    const limit = await checkRateLimit(userId);
+    // ✅ اول محدودیت را چک کنیم
+    const limit = checkAndUpdateLimit(userId);
+
     if (!limit.allowed) {
+      const remainingText = formatRemaining(limit.remainingMs);
+
       await sendMessage(
         chatId,
         "دوست خوبم 🌱\n" +
-          "در هر بازه ۶ ساعته فقط می‌تونی ۱۰ پیام ارسال کنی.\n" +
-          "الان سقف این بازه پر شده. چند ساعت دیگه برگرد ❤️",
+          `در هر بازه‌ی ۶ ساعته فقط می‌تونی ${MAX_MESSAGES} پیام ارسال کنی.\n` +
+          `الان سقف این بازه‌ات پر شده.\n` +
+          `زمان تقریبی باقی‌مانده تا فعال شدن دوباره: ${remainingText} ⏳`,
         replyToId
       );
-      return res.status(200).json({ ok: true });
+
+      return res.status(200).json({ ok: true, limited: true });
     }
 
-    // پاسخ Groq
+    // 🧠 گرفتن جواب از Groq
     const answer = await askGroq(text);
 
     await sendMessage(chatId, answer, replyToId);
     return res.status(200).json({ ok: true });
   } catch (err) {
     console.error("Webhook error:", err);
+    try {
+      const chatId = req.body?.message?.chat?.id;
+      const replyToId = req.body?.message?.message_id;
+      if (chatId) {
+        await sendMessage(
+          chatId,
+          "متأسفم، یک خطای موقتی رخ داد. چند دقیقه‌ی دیگر دوباره امتحان کن 🙏",
+          replyToId
+        );
+      }
+    } catch (e) {
+      console.error("خطا در ارسال پیام خطا:", e);
+    }
+
     return res.status(500).json({ ok: false });
   }
 }
