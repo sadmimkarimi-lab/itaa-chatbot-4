@@ -1,8 +1,8 @@
 // api/chat.js
 
-// ——————— تمیز کردن متن خروجی ———————
 function cleanAnswer(text) {
-  if (!text || typeof text !== "string") return "نتوانستم پاسخی تولید کنم.";
+  if (!text || typeof text !== "string")
+    return "متوجه نشدم عزیزم، دوباره بپرس.";
 
   let t = text.trim();
   t = t.replace(/\r\n/g, "\n");
@@ -13,9 +13,8 @@ function cleanAnswer(text) {
 }
 
 export default async function handler(req, res) {
-  // فقط POST قبول کنیم
   if (req.method !== "POST") {
-    return res.status(405).json({ ok: false, error: "فقط متد POST مجاز است." });
+    return res.status(405).json({ ok: false, error: "فقط POST مجاز است." });
   }
 
   const { text } = req.body || {};
@@ -23,100 +22,102 @@ export default async function handler(req, res) {
   if (!text || typeof text !== "string") {
     return res
       .status(400)
-      .json({ ok: false, error: "متن سؤال ارسال نشده است." });
+      .json({ ok: false, error: "متن پیام پیدا نشد عزیزم." });
   }
 
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
-    console.error("GROQ_API_KEY تعریف نشده است.");
     return res
       .status(500)
-      .json({ ok: false, error: "کلید گروک روی سرور تنظیم نشده است." });
+      .json({ ok: false, error: "کلید GROQ تنظیم نشده." });
   }
 
-  // ——————— تابع کمکی برای صدا زدن یک مدل ———————
-  async function callGroqModel(modelName) {
-    console.log("🔎 تست مدل:", modelName);
-
-    const response = await fetch(
-      "https://api.groq.com/openai/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: modelName,
-          messages: [
-            {
-              role: "system",
-              content:
-                "تو یک دستیار فارسی‌زبان، صبور و مهربان هستی. پاسخ‌ها را کوتاه، دقیق و قابل فهم بنویس.",
-            },
-            {
-              role: "user",
-              content: text,
-            },
-          ],
-          temperature: 0.7,
-        }),
-      }
-    );
-
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      console.error("Groq error for model", modelName, data);
-      const msg =
-        data?.error?.message || `Groq error with model ${modelName}`;
-      throw new Error(msg);
-    }
-
-    const answer = data?.choices?.[0]?.message?.content;
-    if (!answer) {
-      throw new Error("پاسخی از مدل دریافت نشد.");
-    }
-
-    return answer;
-  }
-
-  // ——————— لیست مدل‌ها: به ترتیب امتحان می‌کنیم ———————
-  const modelsToTry = [
-    "llama-3.1-8b-instant",  // سریع و عمومی
-    "mixtral-8x7b-32768",    // قوی‌تر، اگر اولی خطا داد
-    "qwen-2.5-coder-32b"     // fallback سوم
+  // مدل‌های واقعی و سریع Groq
+  const models = [
+    "llama3-70b-8192",      // قوی‌ترین و بهترین
+    "mixtral-8x7b-32768",   // fallback دقیق
+    "llama3-8b-8192"        // سریع و سبک
   ];
 
-  try {
-    let rawAnswer = null;
-    let lastError = null;
+  async function askModel(modelName) {
+    try {
+      const response = await fetch(
+        "https://api.groq.com/openai/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: modelName,
+            messages: [
+              {
+                role: "system",
+                content: `
+تو یک دستیار فارسی‌زبان با شخصیت گرم، مودب و قابل اعتماد هستی.
+شبیه یک انسان واقعی و فهمیده جواب می‌دهی.
+- محتوای پاسخ باید روان، طبیعی و ساده باشد.
+- نه خشک باش، نه بیش‌ازحد خودمانی.
+- تا می‌توانی واضح، دقیق و خلاصه جواب بده که کاربر راحت بخواند.
+- اگر می‌شود حدس منطقی زد، مستقیم جواب بده.
+- فقط اگر سؤال خیلی مبهم بود یک سؤال کوچک برای شفاف‌سازی بپرس.
+- از گفتن اطلاعات فنی یا اشاره به مدل و API خودداری کن.
+- همیشه لحن مثبت، دلنشین و دوستانه داشته باش.
+                `.trim(),
+              },
+              { role: "user", content: text },
+            ],
+            temperature: 0.55,
+            max_tokens: 800,
+          }),
+        }
+      );
 
-    for (const model of modelsToTry) {
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("❌ Groq Error:", modelName, data);
+        throw new Error(data?.error?.message || "خطای مدل");
+      }
+
+      return cleanAnswer(
+        data?.choices?.[0]?.message?.content ||
+          "نتوانستم پاسخ مناسبی پیدا کنم عزیزم."
+      );
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  try {
+    let answer = null;
+    let lastErr = null;
+
+    for (const model of models) {
       try {
-        rawAnswer = await callGroqModel(model);
-        console.log("✅ مدل موفق:", model);
-        break; // وقتی یک مدل جواب داد، از حلقه خارج می‌شویم
+        console.log("🔄 تست مدل:", model);
+        answer = await askModel(model);
+        console.log("✅ موفق شد:", model);
+        break;
       } catch (err) {
-        lastError = err;
-        console.error(`❌ خطا در مدل ${model}:`, err.message);
-        // می‌ریم سراغ مدل بعدی
+        lastErr = err;
+        continue;
       }
     }
 
-    if (!rawAnswer) {
-      // هیچ مدلی جواب نداده
-      throw lastError || new Error("هیچ مدلی نتوانست پاسخ بدهد.");
+    if (!answer) {
+      return res
+        .status(500)
+        .json({ ok: false, error: "مشکلی در پردازش پیام پیش آمد عزیزم." });
     }
-
-    const answer = cleanAnswer(rawAnswer);
 
     return res.status(200).json({ ok: true, answer });
   } catch (err) {
-    console.error("Internal error:", err);
+    console.error("🔥 Internal server error:", err);
     return res.status(500).json({
       ok: false,
-      error: "خطای داخلی سرور. کمی بعد دوباره تلاش کن.",
+      error: "خطای داخلی سرور، لطفاً دوباره تلاش کن عزیزم.",
     });
   }
 }
