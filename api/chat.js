@@ -2,10 +2,9 @@
 import { Redis } from "@upstash/redis";
 
 // ⚙️ تنظیمات محدودیت
-const WINDOW_SECONDS = 6 * 60 * 60; // ۶ ساعت
-const MAX_MESSAGES = 10;            // حداکثر ۱۰ پیام در هر ۶ ساعت
+const WINDOW_SECONDS = 6 * 60 * 60;
+const MAX_MESSAGES = 10;
 
-// ✅ اتصال به Upstash Redis (اگر تنظیم نشده باشد، محدودیت غیرفعال می‌شود)
 let redis = null;
 if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
   redis = new Redis({
@@ -14,18 +13,13 @@ if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) 
   });
 }
 
-// 🧮 بررسی محدودیت استفاده بر اساس IP
 async function checkRateLimit(ip) {
-  if (!redis) {
-    // اگر رِدیس تنظیم نشده، محدودیت را نادیده بگیر
-    return { allowed: true };
-  }
+  if (!redis) return { allowed: true };
 
   const key = `rate:${ip}`;
   let count = await redis.get(key);
 
   if (count === null) {
-    // اولین پیام در این بازه
     await redis.set(key, 1, { ex: WINDOW_SECONDS });
     return { allowed: true, remaining: MAX_MESSAGES - 1 };
   }
@@ -40,7 +34,17 @@ async function checkRateLimit(ip) {
   return { allowed: true, remaining: MAX_MESSAGES - (count + 1) };
 }
 
-// 🧠 مدل‌های Groq به ترتیب اولویت
+// ⭐⭐⭐ پاکسازی خروجی — جلوگیری از کلمات عجیب ⭐⭐⭐
+function cleanText(text) {
+  return text
+    // حذف حروف غیر فارسی + جلوگیری از چینی/روسی/اروپایی
+    .replace(/[^\u0600-\u06FF\s0-9.,!?؟!]/g, "")
+    // مرتب کردن فاصله‌ها
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// 🧠 مدل‌ها
 const GROQ_MODELS = [
   "llama-3.3-70b-versatile",
   "llama-3.1-8b-instant",
@@ -50,14 +54,12 @@ const GROQ_MODELS = [
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
-// 📨 پرسیدن از Groq با فallback بین مدل‌ها
 async function askGroq(userMessage) {
   if (!GROQ_API_KEY) {
-    console.error("GROQ_API_KEY تعریف نشده است.");
-    return "کلید اتصال به سرویس هوش مصنوعی تنظیم نشده است. لطفاً بعداً دوباره امتحان کن.";
+    return "کلید سرویس هوش مصنوعی تنظیم نشده است. لطفاً بعداً امتحان کن.";
   }
 
-const systemPrompt = `
+  const systemPrompt = `
 تو یک دستیار هوش مصنوعی فارسی‌زبان، مهربان، دقیق و عمل‌گرا هستی.
 
 قوانین خیلی مهم:
@@ -79,6 +81,8 @@ const systemPrompt = `
    - هر پست شامل ۲ تا ۴ جملهٔ کوتاه باشد (بدون متن طولانی خسته‌کننده).
 10) از ایموجی فقط در صورت درخواست کاربر استفاده کن، آن هم حداکثر دو ایموجی در کل پاسخ.
 `;
+
+
   for (const model of GROQ_MODELS) {
     try {
       const response = await fetch(GROQ_API_URL, {
@@ -97,75 +101,65 @@ const systemPrompt = `
       });
 
       if (!response.ok) {
-        console.error(`Groq error (${model}):`, await response.text());
-        continue; // برو مدل بعدی
+        console.error(`Groq model error (${model}) →`, await response.text());
+        continue;
       }
 
       const data = await response.json();
-      const answer =
+      let answer =
         data?.choices?.[0]?.message?.content?.trim() ||
-        "نتوانستم پاسخ مناسبی پیدا کنم، لطفاً سؤال را کمی واضح‌تر بپرس.";
+        "نتوانستم پاسخ مناسب پیدا کنم.";
 
-      return answer;
+      // 🔥 پاکسازی قبل از خروجی
+      const finalText = cleanText(answer);
+      return finalText;
+
     } catch (err) {
-      console.error(`Groq request failed (${model}):`, err);
-      // مدل بعدی
+      console.error(`Groq failed (${model})`, err);
+      continue;
     }
   }
 
-  // اگر همه مدل‌ها خطا دادند
-  return "در حال حاضر به سرویس هوش مصنوعی دسترسی ندارم. لطفاً چند دقیقه بعد دوباره تلاش کن.";
+  return "در حال حاضر سرویس در دسترس نیست. کمی بعد دوباره امتحان کن.";
 }
 
 export default async function handler(req, res) {
-  // فقط POST
-  if (req.method !== "POST") {
-    return res.status(200).send("OK");
-  }
+  if (req.method !== "POST") return res.status(200).send("OK");
 
-  // پیام کاربر را از بدنه پیدا کن (حالت‌های مختلف)
   const body = req.body || {};
   const userMessage =
-    body.text ||            // فرانت فعلی: { text: "..." }
-    body.message ||         // اگر جایی { message: "..." } بفرستی
-    body?.message?.text ||  // ساختارهای شبیه وبهوک
+    body.text ||
+    body.message ||
+    body?.message?.text ||
     "";
 
   if (!userMessage || typeof userMessage !== "string") {
-    console.log("No user message in payload:", body);
     return res.status(400).json({
       ok: false,
-      answer: "متن پیام دریافت نشد. لطفاً دوباره امتحان کن.",
+      answer: "متن پیام دریافت نشد.",
     });
   }
 
-  // IP کاربر برای محدودیت (حدسی، بر اساس X-Forwarded-For)
+  // IP برای محدودیت
   const xff = req.headers["x-forwarded-for"];
   const ip =
     (Array.isArray(xff) ? xff[0] : xff?.split(",")[0]) ||
     req.socket?.remoteAddress ||
-    "unknown-ip";
+    "unknown";
 
-  // ⏱ اعمال محدودیت
   try {
     const limit = await checkRateLimit(ip);
     if (!limit.allowed) {
       return res.status(200).json({
         ok: true,
         answer:
-          "برای اینکه سرویس پایدار بماند، در هر بازه‌ی ۶ ساعته فقط می‌توانی ۱۰ پیام بفرستی. " +
-          "الان به سقف این تعداد رسیده‌ای. لطفاً بعد از مدتی دوباره امتحان کن 🌿",
+          "در هر ۶ ساعت فقط ۱۰ پیام می‌توانی ارسال کنی. لطفاً کمی بعد دوباره تلاش کن.",
       });
     }
-  } catch (err) {
-    console.error("Rate limit check failed:", err);
-    // اگر محدودیت خراب شد، اجازه می‌دیم ادامه بده تا کاربر اذیت نشه
-  }
+  } catch (e) {}
 
-  // 🧠 گرفتن پاسخ از Groq
   const answer = await askGroq(userMessage);
 
-  // پاسخ طبق قرارداد فرانت: { ok: true, answer: "..." }
   return res.status(200).json({
     ok: true,
     answer,
