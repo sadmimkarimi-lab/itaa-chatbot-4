@@ -2,8 +2,8 @@
 import { Redis } from "@upstash/redis";
 
 // ⚙️ تنظیمات محدودیت
-const WINDOW_SECONDS = 6 * 60 * 60;
-const MAX_MESSAGES = 10;
+const WINDOW_SECONDS = 6 * 60 * 60; // ۶ ساعت
+const MAX_MESSAGES = 5;             // حداکثر ۵ پیام در هر ۶ ساعت
 
 let redis = null;
 if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
@@ -50,7 +50,7 @@ const BLOCKED_KEYWORDS = [
   "سکس",
   "sex",
   "سکسی",
-  "رابطه جنسی",
+  "רابطه جنسی",
   "رابطه نامشروع",
   "پورن",
   "porn",
@@ -159,11 +159,10 @@ const BLOCKED_PHRASES = [
   /(کپشن|متن|پست).*(ضد|براندازی|سرنگونی).*(جمهوری\s+اسلامی|نظام|حکومت)/,
 ];
 
-// 🧠 مدل‌ها
+// 🧠 مدل‌ها (فقط مدل‌های رایگان و در دسترس)
 const GROQ_MODELS = [
-  "llama-3.3-70b-versatile",
-  "llama-3.1-8b-instant",
-  "gpt-oss-20b",
+  "llama-3.1-8b-instant",      // سریع و ارزان
+  "llama-3.3-70b-versatile"    // قوی‌تر برای جواب‌های با کیفیت‌تر
 ];
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
@@ -308,10 +307,12 @@ export default async function handler(req, res) {
       return res.status(200).json({
         ok: true,
         answer:
-          "در هر ۶ ساعت فقط ۱۰ پیام می‌توانی ارسال کنی. لطفاً کمی بعد دوباره تلاش کن.",
+          "در هر ۶ ساعت می‌توانی ۵ پیام ارسال کنی عزیزم. لطفاً کمی بعد دوباره امتحان کن 🌹",
       });
     }
-  } catch (e) {}
+  } catch (e) {
+    // اگر رِدیس خراب شد، بی‌صدا ادامه می‌دهیم تا کاربر قفل نشود
+  }
 
   const answer = await askGroq(userMessage);
 
