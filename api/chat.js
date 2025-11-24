@@ -3,7 +3,10 @@ import { Redis } from "@upstash/redis";
 
 // ⚙️ تنظیمات محدودیت
 const WINDOW_SECONDS = 6 * 60 * 60; // ۶ ساعت
-const MAX_MESSAGES = 5;             // حداکثر ۵ پیام در هر ۶ ساعت
+const MAX_MESSAGES = 5;             // حداکثر ۵ پیام در هر ۶ ساعت برای هر کاربر
+
+// ⚙️ سقف مصرف روزانه‌ی توکن (کمی کمتر از 500k برای حاشیه امن)
+const DAILY_TOKEN_LIMIT = 450000;
 
 let redis = null;
 if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
@@ -13,10 +16,32 @@ if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) 
   });
 }
 
-async function checkRateLimit(ip) {
+// ✅ توکن روزانه — ذخیره در رِدیس
+function getTodayKey() {
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  return `tokens:${today}`;
+}
+
+async function addTokensUsed(tokens) {
+  if (!redis || !tokens) return;
+  const key = getTodayKey();
+  await redis.incrby(key, tokens);
+  // حدوداً یک روز + کمی بیشتر برای اطمینان
+  await redis.expire(key, 60 * 60 * 27);
+}
+
+async function isDailyLimitReached() {
+  if (!redis) return false;
+  const key = getTodayKey();
+  const used = Number((await redis.get(key)) || 0);
+  return used >= DAILY_TOKEN_LIMIT;
+}
+
+// ✅ محدودیت تعداد پیام بر اساس شناسه‌ی کاربر/چت
+async function checkRateLimit(userId) {
   if (!redis) return { allowed: true };
 
-  const key = `rate:${ip}`;
+  const key = `rate:${userId}`;
   let count = await redis.get(key);
 
   if (count === null) {
@@ -170,7 +195,10 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
 async function askGroq(userMessage) {
   if (!GROQ_API_KEY) {
-    return "کلید سرویس هوش مصنوعی تنظیم نشده است. لطفاً بعداً امتحان کن.";
+    return {
+      answer: "سرویس هوش مصنوعی هنوز تنظیم نشده عزیزم 🌹\nبعد از تکمیل تنظیمات، دوباره امتحان کن 🤍",
+      tokensUsed: 0,
+    };
   }
 
   const systemPrompt = `
@@ -232,6 +260,8 @@ async function askGroq(userMessage) {
         },
         body: JSON.stringify({
           model,
+          max_tokens: 180,   // محدودیت توکن برای کاهش مصرف
+          temperature: 0.7,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userMessage },
@@ -240,7 +270,23 @@ async function askGroq(userMessage) {
       });
 
       if (!response.ok) {
-        console.error(`Groq model error (${model}) →`, await response.text());
+        const errorText = await response.text();
+        console.error(`Groq model error (${model}) →`, errorText);
+
+        // اگر از سمت Groq سقف مصرف لحظه‌ای/ساعتی خورده باشد
+        if (
+          response.status === 429 ||
+          errorText.toLowerCase().includes("rate limit")
+        ) {
+          return {
+            answer:
+              "ظرفیت سرویس هوش مصنوعی امروز تقریباً پر شده عزیزم 🌹\n" +
+              "برای اینکه کیفیت پاسخ‌ها حفظ بشه، لطفاً کمی بعد یا فردا دوباره سر بزن 🤍",
+            tokensUsed: 0,
+          };
+        }
+
+        // خطای دیگر → می‌رویم سراغ مدل بعدی
         continue;
       }
 
@@ -251,15 +297,22 @@ async function askGroq(userMessage) {
 
       // 🔥 پاکسازی قبل از خروجی
       const finalText = cleanText(answer);
-      return finalText;
+      const tokensUsed = data?.usage?.total_tokens || 0;
 
+      return { answer: finalText, tokensUsed };
     } catch (err) {
       console.error(`Groq failed (${model})`, err);
       continue;
     }
   }
 
-  return "در حال حاضر سرویس در دسترس نیست. کمی بعد دوباره امتحان کن.";
+  // اگر هیچ مدل نتوانست جواب بدهد
+  return {
+    answer:
+      "الان سرویس کمی شلوغ شده عزیزم 🌹\n" +
+      "چند دقیقه بعد دوباره امتحان کن؛ ربات همیشه منتظر پیام‌هات هست 🤍",
+    tokensUsed: 0,
+  };
 }
 
 export default async function handler(req, res) {
@@ -290,31 +343,56 @@ export default async function handler(req, res) {
     return res.status(200).json({
       ok: true,
       answer:
-        "در این زمینه نمی‌توانم محتوا یا پاسخ تولید کنم. اگر موضوع دیگری در حوزه‌های سالم، سازنده و آموزشی داری با خوشحالی کمک می‌کنم.",
+        "در این زمینه نمی‌توانم محتوا یا پاسخ تولید کنم عزیزم 🌹\n" +
+        "اگر سوالی در حوزه‌های سالم، سازنده و آموزشی داری، با خوشحالی کنارت هستم 🤍",
     });
   }
 
-  // IP برای محدودیت
-  const xff = req.headers["x-forwarded-for"];
-  const ip =
-    (Array.isArray(xff) ? xff[0] : xff?.split(",")[0]) ||
-    req.socket?.remoteAddress ||
+  // ✅ سقف روزانه‌ی توکن قبل از صدا زدن مدل
+  try {
+    if (await isDailyLimitReached()) {
+      return res.status(200).json({
+        ok: true,
+        answer:
+          "ظرفیت امروز ربات تکمیل شده عزیز دل 🌹\n" +
+          "برای اینکه کیفیت و پایداری سرویس حفظ بشه، پاسخ‌ها از فردا دوباره فعال می‌شن.\n" +
+          "ممنون که این‌قدر از ربات استفاده می‌کنی، بودنت باعث افتخاره 🤍",
+      });
+    }
+  } catch (e) {
+    console.error("Daily limit check failed", e);
+  }
+
+  // ✅ شناسه کاربر/چت برای محدودیت تعداد پیام
+  const userId =
+    body?.message?.chat?.id ||
+    body?.chat_id ||
+    body?.from?.id ||
     "unknown";
 
   try {
-    const limit = await checkRateLimit(ip);
+    const limit = await checkRateLimit(userId);
     if (!limit.allowed) {
       return res.status(200).json({
         ok: true,
         answer:
-          "در هر ۶ ساعت می‌توانی ۵ پیام ارسال کنی عزیزم. لطفاً کمی بعد دوباره امتحان کن 🌹",
+          "برای حفظ کیفیت، هر کاربر می‌تواند در هر ۶ ساعت حداکثر ۵ پیام ارسال کند عزیزم 🌹\n" +
+          "کمی بعد دوباره پیام بده، منتظر حرف‌هات هستم 🤍",
       });
     }
   } catch (e) {
     // اگر رِدیس خراب شد، بی‌صدا ادامه می‌دهیم تا کاربر قفل نشود
+    console.error("Rate limit check failed", e);
   }
 
-  const answer = await askGroq(userMessage);
+  const { answer, tokensUsed } = await askGroq(userMessage);
+
+  // ✅ بعد از پاسخ، توکن‌های مصرف‌شده ثبت می‌شوند
+  try {
+    await addTokensUsed(tokensUsed);
+  } catch (e) {
+    console.error("Add tokens failed", e);
+  }
 
   return res.status(200).json({
     ok: true,
