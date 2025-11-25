@@ -36,26 +36,29 @@ async function isDailyLimitReached() {
   return used >= DAILY_TOKEN_LIMIT;
 }
 
-// ✅ محدودیت تعداد پیام بر اساس شناسه‌ی کاربر/چت
+// نسخه اصلاح‌شده و صحیح محدودیت پیام
 async function checkRateLimit(userId) {
   if (!redis) return { allowed: true };
 
   const key = `rate:${userId}`;
-  let count = await redis.get(key);
 
-  if (count === null) {
-    await redis.set(key, 1, { ex: WINDOW_SECONDS });
-    return { allowed: true, remaining: MAX_MESSAGES - 1 };
+  // یکی به شمارش پیام‌ها اضافه کن
+  const count = await redis.incr(key);
+
+  // اگر این اولین پیام در این بازه است، تایمر ۶ ساعته بگذار
+  if (count === 1) {
+    await redis.expire(key, WINDOW_SECONDS);
   }
 
-  count = Number(count);
-
-  if (count >= MAX_MESSAGES) {
+  // اگر از سقف مجاز بیشتر شد
+  if (count > MAX_MESSAGES) {
     return { allowed: false, remaining: 0 };
   }
 
-  await redis.set(key, count + 1, { ex: WINDOW_SECONDS });
-  return { allowed: true, remaining: MAX_MESSAGES - (count + 1) };
+  return {
+    allowed: true,
+    remaining: MAX_MESSAGES - count,
+  };
 }
 
 // ⭐⭐⭐ پاکسازی خروجی — جلوگیری از کلمات عجیب ⭐⭐⭐
