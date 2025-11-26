@@ -3,10 +3,7 @@ import { Redis } from "@upstash/redis";
 
 // ⚙️ تنظیمات محدودیت پیام
 const WINDOW_SECONDS = 6 * 60 * 60; // ۶ ساعت
-const MAX_MESSAGES = 10;            // حداکثر ۱۰ پیام در هر ۶ ساعت برای هر IP
-
-// ⚙️ سقف مصرف روزانه‌ی توکن برای کل ربات
-const DAILY_TOKEN_LIMIT = 450000;
+const MAX_MESSAGES = 5;             // هر کاربر ۵ پیام در ۶ ساعت
 
 let redis = null;
 if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
@@ -17,12 +14,12 @@ if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) 
 }
 
 // =======================
-//  محدودیت تعداد پیام IP
+//  محدودیت تعداد پیام برای هر کاربر
 // =======================
-async function checkRateLimit(ip) {
+async function checkRateLimit(keySuffix) {
   if (!redis) return { allowed: true };
 
-  const key = `rate:${ip}`;
+  const key = `rate:${keySuffix}`;
   let count = await redis.get(key);
 
   if (count === null) {
@@ -38,28 +35,6 @@ async function checkRateLimit(ip) {
 
   await redis.set(key, count + 1, { ex: WINDOW_SECONDS });
   return { allowed: true, remaining: MAX_MESSAGES - (count + 1) };
-}
-
-// =======================
-//     سقف روزانه توکن
-// =======================
-function getTodayKey() {
-  const today = new Date().toISOString().slice(0, 10);
-  return `tokens:${today}`;
-}
-
-async function addTokensUsed(tokens) {
-  if (!redis || !tokens) return;
-  const key = getTodayKey();
-  await redis.incrby(key, tokens);
-  await redis.expire(key, 60 * 60 * 27);
-}
-
-async function isDailyLimitReached() {
-  if (!redis) return false;
-  const key = getTodayKey();
-  const used = Number((await redis.get(key)) || 0);
-  return used >= DAILY_TOKEN_LIMIT;
 }
 
 // =======================
@@ -103,8 +78,6 @@ const BLOCKED_PHRASES = [
 // =======================
 //     مدل‌ها — نسخه پایدار
 // =======================
-// ⚠️ ۷۰B حذف شد (مصرف بالا، قطع سرویس)
-// اکنون فقط مدل‌های پایدار و سبک باقی مانده‌اند
 const GROQ_MODELS = [
   "llama-3.1-8b-instant",
   "gpt-oss-20b",
@@ -121,22 +94,18 @@ function localSimpleReply(text) {
   const t = text.trim().toLowerCase();
   const includesAny = (words) => words.some((w) => t.includes(w));
 
-  // 1) سلام
   if (t === "سلام" || t.startsWith("سلام ")) {
     return "سلام عزیز دلم 🌹 من ربات هوش مصنوعی هستم. کامل و واضح بگو چی می‌خوای 🤍";
   }
 
-  // 2) معرفی ربات
   if (includesAny(["این ربات چیه","چیکار میکنی","کار تو چیه","برا چی ساختنت"])) {
     return "من یک ربات فارسی‌زبان هستم برای تولید متن، کپشن، ایده، و کمک به کارهای محتوایی 🌹";
   }
 
-  // 3) محدودیت پیام
   if (includesAny(["چند تا پیام","محدودیت پیام","سقف پیام"])) {
-    return "هر کاربر می‌تونه در هر ۶ ساعت تا ۱۰ پیام ارسال کنه 💛";
+    return "هر کاربر می‌تونه در هر ۶ ساعت تا ۵ پیام ارسال کنه 💛";
   }
 
-  // 4) تشکر
   if (t === "مرسی" || includesAny(["ممنون","دمت گرم","خیلی خوبی"])) {
     return "قربانت عزیزم 🌹 خوشحالم که به دردت می‌خورم 🤍";
   }
@@ -180,10 +149,7 @@ async function askGroq(userMessage) {
         }),
       });
 
-      if (!response.ok) {
-        console.error(`Groq model error (${model}) →`, await response.text());
-        continue;
-      }
+      if (!response.ok) continue;
 
       const data = await response.json();
       const answer =
@@ -191,21 +157,15 @@ async function askGroq(userMessage) {
         "نتوانستم پاسخ مناسب پیدا کنم.";
 
       const finalText = cleanText(answer);
-      const tokensUsed =
-        data?.usage?.total_tokens ||
-        ((data?.usage?.prompt_tokens || 0) +
-          (data?.usage?.completion_tokens || 0));
 
-      return { answer: finalText, tokensUsed };
+      return { answer: finalText };
     } catch (err) {
-      console.error(`Groq failed (${model})`, err);
       continue;
     }
   }
 
   return {
     answer: "در حال حاضر سرویس در دسترس نیست. بعداً دوباره امتحان کن 🌹",
-    tokensUsed: 0,
   };
 }
 
@@ -218,8 +178,8 @@ export default async function handler(req, res) {
   const body = req.body || {};
   const userMessage =
     body?.text ||
-    body?.message ||
     body?.message?.text ||
+    body?.message ||
     "";
 
   if (!userMessage || typeof userMessage !== "string") {
@@ -249,35 +209,38 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, answer: local });
   }
 
-  // سقف روزانه
-  if (await isDailyLimitReached()) {
-    return res.status(200).json({
-      ok: true,
-      answer:
-        "ظرفیت استفاده از ربات برای امروز تکمیل شده است 🌹 لطفاً فردا دوباره امتحان کن.",
-    });
+  // محدودیت بر اساس user_id
+  const userId =
+    body?.message?.from_id ||
+    body?.from_id ||
+    body?.user_id ||
+    body?.chat_id ||
+    null;
+
+  let rateKey = "guest";
+
+  if (userId) {
+    rateKey = `user:${userId}`;
+  } else {
+    const xff = req.headers["x-forwarded-for"];
+    const fallbackIp =
+      (Array.isArray(xff) ? xff[0] : xff?.split(",")[0]) ||
+      req.socket?.remoteAddress ||
+      "unknown";
+    rateKey = `ip:${fallbackIp}`;
   }
 
-  // محدودیت پیام
-  const xff = req.headers["x-forwarded-for"];
-  const ip =
-    (Array.isArray(xff) ? xff[0] : xff?.split(",")[0]) ||
-    req.socket?.remoteAddress ||
-    "unknown";
-
-  const limit = await checkRateLimit(ip);
+  const limit = await checkRateLimit(rateKey);
   if (!limit.allowed) {
     return res.status(200).json({
       ok: true,
       answer:
-        "در هر ۶ ساعت فقط ۱۰ پیام می‌توانی ارسال کنی. لطفاً کمی بعد دوباره تلاش کن 🌹",
+        "در هر ۶ ساعت فقط ۵ پیام می‌تونی بفرستی عزیزم 🌹 بعد از این مدت دوباره فعال می‌شی.",
     });
   }
 
   // تماس با مدل
-  const { answer, tokensUsed } = await askGroq(userMessage);
-
-  await addTokensUsed(tokensUsed);
+  const { answer } = await askGroq(userMessage);
 
   return res.status(200).json({
     ok: true,
