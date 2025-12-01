@@ -42,7 +42,7 @@ async function checkRateLimit(keySuffix) {
 // =======================
 function cleanText(text) {
   return text
-    .replace(/[^\u0600-\u06FF\s0-9.,!?؟!]/g, "")
+    .replace(/[^\u0600-\u06FFa-zA-Z\s0-9.,!?؟!]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
