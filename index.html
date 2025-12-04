@@ -67,6 +67,31 @@
         background: rgba(0, 0, 0, 0.26);
       }
 
+      /* دکمه کانال طاویتا */
+      .channel-btn {
+        margin-right: auto; /* برود سمت چپ هدر (با توجه به ترتیب عناصر) */
+        background: #ffffff;
+        color: #0f9d58;
+        border: none;
+        border-radius: 999px;
+        padding: 7px 14px;
+        font-size: 13px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
+        white-space: nowrap;
+      }
+
+      .channel-btn span {
+        font-size: 15px;
+      }
+
+      .channel-btn:active {
+        transform: scale(0.96);
+      }
+
       .app-header-avatar {
         width: 44px;
         height: 44px;
@@ -122,13 +147,12 @@
         margin-bottom: 10px;
       }
 
-      /* چون صفحه RTL است، flex-start = راست و flex-end = چپ */
       .message-row.user {
-        justify-content: flex-start; /* کاربر راست */
+        justify-content: flex-start;
       }
 
       .message-row.bot {
-        justify-content: flex-start; /* ربات هم راست، ولی با کاراکتر چپ حباب */
+        justify-content: flex-start;
         align-items: flex-end;
       }
 
@@ -168,7 +192,7 @@
       /* کاراکتر طاویتا کنار حباب ربات */
       .bot-character {
         width: 52px;
-        margin-right: -10px; /* کمی وارد حباب */
+        margin-right: -10px;
         margin-left: 4px;
         pointer-events: none;
       }
@@ -409,7 +433,7 @@
       }
     </style>
 
-    <!-- SDK ایتا طبق مستندات رسمی -->
+    <!-- SDK ایتا -->
     <script src="https://developer.eitaa.com/eitaa-web-app.js"></script>
   </head>
 
@@ -426,10 +450,17 @@
             alt="لوگو طاویتا"
           />
         </div>
+
         <div>
           <div class="app-header-title">chatgpt</div>
           <div class="app-header-subtitle">دستیار هوشمند شما در ایتا 🌿</div>
         </div>
+
+        <!-- دکمه کانال طاویتا -->
+        <button id="channelBtn" class="channel-btn">
+          <span>📢</span>
+          <span>کانال طاویتا</span>
+        </button>
       </header>
 
       <div class="chat-wrapper">
@@ -511,22 +542,47 @@
       const emojiPicker = document.getElementById("emojiPicker");
       const gameButtons = document.querySelectorAll(".game-btn");
       const backBtn = document.getElementById("backBtn");
+      const channelBtn = document.getElementById("channelBtn");
 
       // دکمه برگشت به ربات ایتا
       if (backBtn) {
         backBtn.addEventListener("click", () => {
           const appUrl = "https://eitaa.com/chatgpt_tavita_app";
 
-          // اگر داخل ایتا هستیم و SDK در دسترس است، برنامک را ببند (برگشت به چت ربات)
           if (
             window.Eitaa &&
             window.Eitaa.WebApp &&
             typeof window.Eitaa.WebApp.close === "function"
           ) {
+            // داخل ایتا → بستن برنامک و برگشت به چت
             window.Eitaa.WebApp.close();
           } else {
-            // اگر در مرورگر معمولی باز شده، به لینک ربات برو
+            // خارج از ایتا → رفتن به چت ربات
             window.location.href = appUrl;
+          }
+        });
+      }
+
+      // دکمه کانال طاویتا
+      if (channelBtn) {
+        channelBtn.addEventListener("click", () => {
+          const channelUrl = "https://eitaa.com/tavita";
+
+          if (window.Eitaa && window.Eitaa.WebApp) {
+            const wa = window.Eitaa.WebApp;
+
+            if (typeof wa.openEitaaLink === "function") {
+              // متد مخصوص لینک ایتا (طبق مستندات)
+              wa.openEitaaLink(channelUrl);
+            } else if (typeof wa.openLink === "function") {
+              // متد عمومی باز کردن لینک
+              wa.openLink(channelUrl);
+            } else {
+              window.location.href = channelUrl;
+            }
+          } else {
+            // اگر در مرورگر معمولی باز شده
+            window.location.href = channelUrl;
           }
         });
       }
@@ -536,7 +592,7 @@
         "سلام 👋 خوش اومدی!\n" +
           "من دستیار chatgpt هستم.\n" +
           "هر سؤالی درباره زندگی، کار، درس ایده و... داری بپرس 🌿\n" +
-          "برای اینکه سرویس پایدار بمونه در هر بازه ی ۶ ساعته میتونی حداکثر ۵ پیام ارسال کنی. پس در هر پیامت کامل و با جزئیات درخواستت رو بیان کن."
+          "برای اینکه سرویس پایدار بمونه در هر بازه ی ۶ ساعته میتونی حداکثر ۱۰ پیام ارسال کنی. پس در هر پیامت کامل و با جزئیات درخواستت رو بیان کن."
       );
 
       // پاک کردن چت
@@ -639,7 +695,6 @@
         bubble.appendChild(content);
         bubble.appendChild(meta);
 
-        // حباب اول، بعد کاراکتر (در RTL کاراکتر می‌رود سمت چپ حباب)
         row.appendChild(bubble);
 
         const char = document.createElement("div");
@@ -723,10 +778,8 @@
           const userMove = btn.getAttribute("data-move");
           const botMove = getBotMove();
 
-          // پیام کاربر
           addUserMessage(`شما ${moveLabelsUser[userMove]} را انتخاب کردی.`);
 
-          // نتیجه بازی
           const result = getResult(userMove, botMove);
           let resultText = "";
 
