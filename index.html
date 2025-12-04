@@ -34,10 +34,37 @@
         background: linear-gradient(135deg, #0f9d58, #12b565);
         color: #ffffff;
         padding: 14px 16px;
+        padding-left: 60px; /* جا برای دکمه سمت چپ */
         display: flex;
         align-items: center;
         gap: 12px;
         box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+        position: relative; /* برای دکمه برگشت */
+      }
+
+      /* دکمه برگشت به ربات */
+      .back-btn {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 36px;
+        height: 36px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.7);
+        background: rgba(0, 0, 0, 0.18);
+        color: #ffffff;
+        font-size: 18px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        outline: none;
+      }
+
+      .back-btn:active {
+        transform: translateY(-50%) scale(0.95);
+        background: rgba(0, 0, 0, 0.26);
       }
 
       .app-header-avatar {
@@ -381,12 +408,18 @@
         }
       }
     </style>
+
+    <!-- SDK ایتا طبق مستندات رسمی -->
+    <script src="https://developer.eitaa.com/eitaa-web-app.js"></script>
   </head>
 
   <body>
     <div class="app">
       <!-- هدر سبز با لوگوی طاویتا -->
       <header class="app-header">
+        <!-- دکمه برگشت به ربات ایتا -->
+        <button id="backBtn" class="back-btn">⬅️</button>
+
         <div class="app-header-avatar">
           <img
             src="https://cdnfa.com/irangiah/a9be/uploads/new5/picsart-25-11-11-18-20-53-865.png"
@@ -449,27 +482,15 @@
                 <span>با طاویتا سنگ‌کاغذقیچی بازی کن</span>
               </div>
               <div class="game-buttons">
-                <button
-                  type="button"
-                  class="game-btn"
-                  data-move="rock"
-                >
+                <button type="button" class="game-btn" data-move="rock">
                   <span>🪨</span>
                   <span>سنگ</span>
                 </button>
-                <button
-                  type="button"
-                  class="game-btn"
-                  data-move="paper"
-                >
+                <button type="button" class="game-btn" data-move="paper">
                   <span>📄</span>
                   <span>کاغذ</span>
                 </button>
-                <button
-                  type="button"
-                  class="game-btn"
-                  data-move="scissors"
-                >
+                <button type="button" class="game-btn" data-move="scissors">
                   <span>✂️</span>
                   <span>قیچی</span>
                 </button>
@@ -489,14 +510,34 @@
       const emojiBtn = document.getElementById("emojiBtn");
       const emojiPicker = document.getElementById("emojiPicker");
       const gameButtons = document.querySelectorAll(".game-btn");
+      const backBtn = document.getElementById("backBtn");
+
+      // دکمه برگشت به ربات ایتا
+      if (backBtn) {
+        backBtn.addEventListener("click", () => {
+          const appUrl = "https://eitaa.com/chatgpt_tavita_app";
+
+          // اگر داخل ایتا هستیم و SDK در دسترس است، برنامک را ببند (برگشت به چت ربات)
+          if (
+            window.Eitaa &&
+            window.Eitaa.WebApp &&
+            typeof window.Eitaa.WebApp.close === "function"
+          ) {
+            window.Eitaa.WebApp.close();
+          } else {
+            // اگر در مرورگر معمولی باز شده، به لینک ربات برو
+            window.location.href = appUrl;
+          }
+        });
+      }
 
       // پیام خوش‌آمد
-addBotMessage(
-  "سلام 👋 خوش اومدی!\n" +
-    "من دستیار chatgpt هستم.\n" +
-    "هر سؤالی درباره زندگی، کار، درس ایده و... داری بپرس 🌿\n" +
-    "برای اینکه سرویس پایدار بمونه در هر بازه ی ۶ ساعته میتونی حداکثر ۱۰ پیام ارسال کنی. پس در هر پیامت کامل و با جزئیات درخواستت رو بیان کن."
-);
+      addBotMessage(
+        "سلام 👋 خوش اومدی!\n" +
+          "من دستیار chatgpt هستم.\n" +
+          "هر سؤالی درباره زندگی، کار، درس ایده و... داری بپرس 🌿\n" +
+          "برای اینکه سرویس پایدار بمونه در هر بازه ی ۶ ساعته میتونی حداکثر ۵ پیام ارسال کنی. پس در هر پیامت کامل و با جزئیات درخواستت رو بیان کن."
+      );
 
       // پاک کردن چت
       clearBtn.addEventListener("click", () => {
