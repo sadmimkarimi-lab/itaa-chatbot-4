@@ -38,24 +38,6 @@
         align-items: center;
         gap: 12px;
         box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
-        position: relative; /* برای دکمه برگشت */
-      }
-
-      /* دکمه برگشت به ربات */
-      .back-btn {
-        position: absolute;
-        left: 10px;
-        top: 50%;
-        transform: translateY(-50%);
-        background: transparent;
-        border: none;
-        color: #ffffff;
-        font-size: 22px;
-        cursor: pointer;
-      }
-
-      .back-btn:active {
-        transform: translateY(-50%) scale(0.95);
       }
 
       .app-header-avatar {
@@ -405,9 +387,6 @@
     <div class="app">
       <!-- هدر سبز با لوگوی طاویتا -->
       <header class="app-header">
-        <!-- دکمه برگشت به ربات ایتا -->
-        <button id="backBtn" class="back-btn">⬅️</button>
-
         <div class="app-header-avatar">
           <img
             src="https://cdnfa.com/irangiah/a9be/uploads/new5/picsart-25-11-11-18-20-53-865.png"
@@ -470,15 +449,27 @@
                 <span>با طاویتا سنگ‌کاغذقیچی بازی کن</span>
               </div>
               <div class="game-buttons">
-                <button type="button" class="game-btn" data-move="rock">
+                <button
+                  type="button"
+                  class="game-btn"
+                  data-move="rock"
+                >
                   <span>🪨</span>
                   <span>سنگ</span>
                 </button>
-                <button type="button" class="game-btn" data-move="paper">
+                <button
+                  type="button"
+                  class="game-btn"
+                  data-move="paper"
+                >
                   <span>📄</span>
                   <span>کاغذ</span>
                 </button>
-                <button type="button" class="game-btn" data-move="scissors">
+                <button
+                  type="button"
+                  class="game-btn"
+                  data-move="scissors"
+                >
                   <span>✂️</span>
                   <span>قیچی</span>
                 </button>
@@ -498,22 +489,14 @@
       const emojiBtn = document.getElementById("emojiBtn");
       const emojiPicker = document.getElementById("emojiPicker");
       const gameButtons = document.querySelectorAll(".game-btn");
-      const backBtn = document.getElementById("backBtn");
-
-      // دکمه برگشت به ربات ایتا
-      if (backBtn) {
-        backBtn.addEventListener("click", () => {
-          window.location.href = "https://eitaa.com/chatgpt_tavita_app";
-        });
-      }
 
       // پیام خوش‌آمد
-      addBotMessage(
-        "سلام 👋 خوش اومدی!\n" +
-          "من دستیار chatgpt هستم.\n" +
-          "هر سؤالی درباره زندگی، کار، درس ایده و... داری بپرس 🌿\n" +
-          "برای اینکه سرویس پایدار بمونه در هر بازه ی ۶ ساعته میتونی حداکثر ۱۰ پیام ارسال کنی. پس در هر پیامت کامل و با جزئیات درخواستت رو بیان کن."
-      );
+addBotMessage(
+  "سلام 👋 خوش اومدی!\n" +
+    "من دستیار chatgpt هستم.\n" +
+    "هر سؤالی درباره زندگی، کار، درس ایده و... داری بپرس 🌿\n" +
+    "برای اینکه سرویس پایدار بمونه در هر بازه ی ۶ ساعته میتونی حداکثر ۱۰ پیام ارسال کنی. پس در هر پیامت کامل و با جزئیات درخواستت رو بیان کن."
+);
 
       // پاک کردن چت
       clearBtn.addEventListener("click", () => {
