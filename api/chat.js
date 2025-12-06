@@ -89,7 +89,22 @@ const GROQ_MODELS = [
 ];
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
+
+// چند کلید مختلف برای چرخش و جلوگیری از تمام شدن سریع
+const GROQ_API_KEYS = [
+  process.env.GROQ_API_KEY,
+  process.env.GROQ_API_KEY1,
+  process.env.GROQ_API_KEY2,
+  process.env.GROQ_API_KEY3,
+  process.env.GROQ_API_KEY4,
+  process.env.GROQ_API_KEY5,
+  process.env.GROQ_API_KEY6,
+].filter(Boolean);
+
+// ایندکس آخرین کلید موفق، برای round-robin
+let lastGroqKeyIndex = 0;
+// کلیدهایی که خطای شدید داده‌اند (مثلاً 401 / 403 / 429)
+const badGroqKeyIndexes = new Set();
 
 // =======================
 // پاسخ‌های ساده محلی (بدون توکن)
@@ -124,12 +139,29 @@ function localSimpleReply(text) {
 }
 
 // =======================
-// تماس با مدل Groq
+//   انتخاب کلید بعدی برای Groq
+// =======================
+function getNextGroqKeyIndex() {
+  if (!GROQ_API_KEYS.length) return null;
+
+  const total = GROQ_API_KEYS.length;
+  for (let step = 0; step < total; step++) {
+    const idx = (lastGroqKeyIndex + step) % total;
+    if (!badGroqKeyIndexes.has(idx)) {
+      return idx;
+    }
+  }
+  // اگر همه بد شده‌اند، برمی‌گردیم null
+  return null;
+}
+
+// =======================
+// تماس با مدل Groq (با چرخش بین کلیدها)
 // =======================
 async function askGroq(userMessage) {
-  if (!GROQ_API_KEY) {
+  if (!GROQ_API_KEYS.length) {
     return {
-      answer: "کلید سرویس هوش مصنوعی تنظیم نشده است.",
+      answer: "هیچ کلید سرویس Groq تنظیم نشده است.",
       tokensUsed: 0,
     };
   }
@@ -155,44 +187,65 @@ async function askGroq(userMessage) {
 اما کوتاه و مؤدبانه.
 `;
 
-  for (const model of GROQ_MODELS) {
-    try {
-      const response = await fetch(GROQ_API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${GROQ_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userMessage },
-          ],
-        }),
-      });
+  const totalKeys = GROQ_API_KEYS.length;
 
-      if (!response.ok) {
-        // اگر این مدل خطا داد، سراغ مدل بعدی می‌رویم
+  // حداکثر به تعداد کلیدها تلاش می‌کنیم
+  for (let keyTry = 0; keyTry < totalKeys; keyTry++) {
+    const keyIndex = getNextGroqKeyIndex();
+    if (keyIndex === null) break; // همه کلیدها داغون شده‌اند
+
+    const apiKey = GROQ_API_KEYS[keyIndex];
+
+    for (const model of GROQ_MODELS) {
+      try {
+        const response = await fetch(GROQ_API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userMessage },
+            ],
+          }),
+        });
+
+        // اگر این کلید/مدل خطای جدی داد
+        if (!response.ok) {
+          // اگر خطای محدودیت/عدم مجوز → این کلید را موقتاً از چرخه حذف کن
+          if ([401, 403, 429].includes(response.status)) {
+            badGroqKeyIndexes.add(keyIndex);
+            // می‌ریم سراغ کلید بعدی
+            break;
+          }
+          // اگر خطای دیگری بود، می‌ریم سراغ مدل بعدی
+          continue;
+        }
+
+        const data = await response.json();
+        const answerRaw =
+          data?.choices?.[0]?.message?.content?.trim() ||
+          "نتوانستم پاسخ مناسب پیدا کنم.";
+
+        const finalText = cleanText(answerRaw);
+
+        // این کلید موفق بود → از این به بعد از همین جا ادامه بده
+        lastGroqKeyIndex = keyIndex;
+
+        return { answer: finalText };
+      } catch (err) {
+        // مشکل شبکه‌ای → مدل بعدی یا کلید بعدی
         continue;
       }
-
-      const data = await response.json();
-      const answerRaw =
-        data?.choices?.[0]?.message?.content?.trim() ||
-        "نتوانستم پاسخ مناسب پیدا کنم.";
-
-      const finalText = cleanText(answerRaw);
-
-      return { answer: finalText };
-    } catch (err) {
-      // اگر کلاً مشکل ارتباطی بود، مدل بعدی تست می‌شود
-      continue;
     }
   }
 
+  // اگر هیچ کلیدی پاسخ نداد:
   return {
-    answer: "در حال حاضر سرویس در دسترس نیست. بعداً دوباره امتحان کن 🌹",
+    answer: "در حال حاضر سرویس هوش مصنوعی در دسترس نیست. کمی بعد دوباره امتحان کن عزیزم 🌹",
   };
 }
 
@@ -259,7 +312,7 @@ export default async function handler(req, res) {
     rateKey = `ip:${fallbackIp}`;
   }
 
-  // ⚠️ محدودیت ۵ پیام در ۶ ساعت (دست‌نخورده)
+  // ⚠️ محدودیت ۵ پیام در ۶ ساعت
   const limit = await checkRateLimit(rateKey);
   if (!limit.allowed) {
     return res.status(200).json({
