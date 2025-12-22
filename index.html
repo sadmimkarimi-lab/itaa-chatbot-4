@@ -431,6 +431,26 @@
           font-size: 12px;
         }
       }
+
+
+.ads-banner {
+  margin: 8px 12px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px dashed #0f9d58;
+  color: #0f9d58;
+  font-weight: bold;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+}
+
+.ads-banner:active {
+  transform: scale(0.97);
+}
+
+      
     </style>
 
     <!-- SDK ایتا -->
@@ -463,6 +483,11 @@
         </button>
       </header>
 
+<!-- بنر تبلیغ -->
+<div class="ads-banner" onclick="openAdLink()">
+  📢 این جای تبلیغ شماست
+</div>
+      
       <div class="chat-wrapper">
         <div class="chat-container">
           <div class="top-actions">
@@ -544,6 +569,20 @@
       const backBtn = document.getElementById("backBtn");
       const channelBtn = document.getElementById("channelBtn");
 
+
+
+const AD_LINK = "https://eitaa.com/tavita_ads";
+
+function openAdLink() {
+  if (window.Eitaa && window.Eitaa.WebApp && window.Eitaa.WebApp.openEitaaLink) {
+    window.Eitaa.WebApp.openEitaaLink(AD_LINK);
+  } else {
+    window.location.href = AD_LINK;
+  }
+}
+
+
+      
       // دکمه برگشت به ربات ایتا
       if (backBtn) {
         backBtn.addEventListener("click", () => {
